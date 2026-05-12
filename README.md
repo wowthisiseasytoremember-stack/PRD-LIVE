@@ -12,7 +12,7 @@ FocusFlow is a pnpm/TypeScript workspace for a Socratic AI project manager. The 
 - **Canonical project state shape:** `ProjectState` has `goal`, `outline`, `sessions`, and `obsidian_markdown`; `ProjectSession` has model routing, stack rules, win conditions, deliverables, and dependencies.
 - **Do not hand-edit generated files** unless intentionally regenerating from the OpenAPI spec.
 
-For deeper LLM handoff notes, read [`docs/LLM_CONTEXT.md`](docs/LLM_CONTEXT.md). For the current audit, read [`docs/AUDIT.md`](docs/AUDIT.md).
+For deeper LLM handoff notes, read [`docs/LLM_CONTEXT.md`](docs/LLM_CONTEXT.md). For the current audit, read [`docs/AUDIT.md`](docs/AUDIT.md). For a comparison-ready review with next steps and scoring, read [`docs/COMPARATIVE_REVIEW.md`](docs/COMPARATIVE_REVIEW.md).
 
 ## Prerequisites
 
@@ -38,16 +38,16 @@ The frontend Vite config requires `PORT` and `BASE_PATH`. The API server require
 
 ## Workspace map
 
-| Path | Purpose | Notes for LLM agents |
-| --- | --- | --- |
-| `artifacts/focusflow/src/pages/home.tsx` | Top-level SPA state orchestration | Owns selected project, local optimistic messages, SSE parsing, mobile tab state, and blueprint completion state. |
-| `artifacts/focusflow/src/components/ChatPanel.tsx` | Chat UI | Contains starter prompts, input locking while the AI is working, and message bubbles. |
-| `artifacts/focusflow/src/components/BlueprintBoard.tsx` | Blueprint and annotation UI | Shows generated goal, outline, sessions, Obsidian export, and annotation affordances. |
-| `artifacts/focusflow/src/components/SessionCard.tsx` | Individual execution session UI | Shows route-to model, stack rules, win condition, dependencies, deliverables, copy prompt, and completion toggle. |
-| `artifacts/api-server/src/routes/projects/index.ts` | Projects CRUD + AI message route | Validates requests, persists messages, calls Gemini, parses structured JSON, and emits SSE completion events. |
-| `lib/api-spec/openapi.yaml` | API contract | Regenerate clients after changing this file. |
-| `lib/db/src/schema/projects.ts` | Drizzle and Zod schemas | Keep this in sync with OpenAPI `ProjectState`/`ProjectSession`. |
-| `lib/integrations-gemini-ai/src/client.ts` | Gemini client bootstrap | Reads Replit AI Integration env vars and configures base URL. |
+| Path                                                    | Purpose                           | Notes for LLM agents                                                                                              |
+| ------------------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `artifacts/focusflow/src/pages/home.tsx`                | Top-level SPA state orchestration | Owns selected project, local optimistic messages, SSE parsing, mobile tab state, and blueprint completion state.  |
+| `artifacts/focusflow/src/components/ChatPanel.tsx`      | Chat UI                           | Contains starter prompts, input locking while the AI is working, and message bubbles.                             |
+| `artifacts/focusflow/src/components/BlueprintBoard.tsx` | Blueprint and annotation UI       | Shows generated goal, outline, sessions, Obsidian export, and annotation affordances.                             |
+| `artifacts/focusflow/src/components/SessionCard.tsx`    | Individual execution session UI   | Shows route-to model, stack rules, win condition, dependencies, deliverables, copy prompt, and completion toggle. |
+| `artifacts/api-server/src/routes/projects/index.ts`     | Projects CRUD + AI message route  | Validates requests, persists messages, calls Gemini, parses structured JSON, and emits SSE completion events.     |
+| `lib/api-spec/openapi.yaml`                             | API contract                      | Regenerate clients after changing this file.                                                                      |
+| `lib/db/src/schema/projects.ts`                         | Drizzle and Zod schemas           | Keep this in sync with OpenAPI `ProjectState`/`ProjectSession`.                                                   |
+| `lib/integrations-gemini-ai/src/client.ts`              | Gemini client bootstrap           | Reads Replit AI Integration env vars and configures base URL.                                                     |
 
 ## Development workflow
 

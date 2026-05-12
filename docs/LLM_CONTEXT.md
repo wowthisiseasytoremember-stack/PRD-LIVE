@@ -82,13 +82,13 @@ pnpm --filter @workspace/api-spec run codegen
 
 ## Environment variables
 
-| Variable | Required by | Purpose |
-| --- | --- | --- |
-| `PORT` | API server and frontend dev/preview | Runtime port. |
-| `BASE_PATH` | FocusFlow Vite app | Base path used by Vite and by frontend API URL construction. |
-| `DATABASE_URL` | `lib/db` | PostgreSQL connection string. |
-| `AI_INTEGRATIONS_GEMINI_BASE_URL` | Gemini integration | Replit AI Integration proxy base URL. |
-| `AI_INTEGRATIONS_GEMINI_API_KEY` | Gemini integration | Replit AI Integration API key. |
+| Variable                          | Required by                         | Purpose                                                      |
+| --------------------------------- | ----------------------------------- | ------------------------------------------------------------ |
+| `PORT`                            | API server and frontend dev/preview | Runtime port.                                                |
+| `BASE_PATH`                       | FocusFlow Vite app                  | Base path used by Vite and by frontend API URL construction. |
+| `DATABASE_URL`                    | `lib/db`                            | PostgreSQL connection string.                                |
+| `AI_INTEGRATIONS_GEMINI_BASE_URL` | Gemini integration                  | Replit AI Integration proxy base URL.                        |
+| `AI_INTEGRATIONS_GEMINI_API_KEY`  | Gemini integration                  | Replit AI Integration API key.                               |
 
 ## Safe change checklist for LLM agents
 

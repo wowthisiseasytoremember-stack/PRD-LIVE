@@ -14,6 +14,7 @@ A Tri-Model AI Orchestrator that acts as a Socratic project manager — it break
 - Required env: `AI_INTEGRATIONS_GEMINI_BASE_URL`, `AI_INTEGRATIONS_GEMINI_API_KEY` — auto-set by Replit AI Integrations
 - LLM handoff doc: `docs/LLM_CONTEXT.md`
 - Current audit: `docs/AUDIT.md`
+- Comparison-ready review and next steps: `docs/COMPARATIVE_REVIEW.md`
 
 ## Stack
 
@@ -69,4 +70,5 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 - Start with `README.md` for project setup and `docs/LLM_CONTEXT.md` for LLM-optimized architecture notes
 - See `docs/AUDIT.md` for known issues and follow-up priorities
+- See `docs/COMPARATIVE_REVIEW.md` when comparing this app to another similar product
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details

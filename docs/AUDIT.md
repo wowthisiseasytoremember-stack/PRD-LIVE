@@ -8,13 +8,17 @@ The application has a coherent product concept and a strong initial visual direc
 
 ## Fixed in this pass
 
-| Area | Finding | Resolution |
-| --- | --- | --- |
-| Type safety | The API server placed `systemInstruction` at the top level of `generateContentStream`, which does not match the installed `@google/genai` TypeScript definitions. | Moved `systemInstruction` into `config`. |
-| Streaming UX | The server streamed chunks of structured JSON as chat content. This can visually expose raw JSON instead of a natural assistant message. | The server now accumulates the structured response and emits clean `assistant_content`/`project_state` in the final SSE event. |
-| Frontend resilience | The SSE reader assumed `res.body` always exists. | Added an explicit response-body guard. |
-| Frontend typing | `home.tsx` used several `any` casts for messages, project cache data, final project state, and session filtering. | Replaced with generated API types (`ProjectMessage`, `ProjectState`, `ProjectWithMessages`) where practical. |
-| LLM maintainability | Documentation was brief and optimized for humans already familiar with the app. | Added a root README and LLM-oriented context document. |
+| Area                | Finding                                                                                                                                                           | Resolution                                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Type safety         | The API server placed `systemInstruction` at the top level of `generateContentStream`, which does not match the installed `@google/genai` TypeScript definitions. | Moved `systemInstruction` into `config`.                                                                                       |
+| Streaming UX        | The server streamed chunks of structured JSON as chat content. This can visually expose raw JSON instead of a natural assistant message.                          | The server now accumulates the structured response and emits clean `assistant_content`/`project_state` in the final SSE event. |
+| Frontend resilience | The SSE reader assumed `res.body` always exists.                                                                                                                  | Added an explicit response-body guard.                                                                                         |
+| Frontend typing     | `home.tsx` used several `any` casts for messages, project cache data, final project state, and session filtering.                                                 | Replaced with generated API types (`ProjectMessage`, `ProjectState`, `ProjectWithMessages`) where practical.                   |
+| LLM maintainability | Documentation was brief and optimized for humans already familiar with the app.                                                                                   | Added a root README and LLM-oriented context document.                                                                         |
+
+## Related review documents
+
+- `docs/COMPARATIVE_REVIEW.md` expands this audit into a comparison-ready product/architecture review with a scoring rubric, phased next steps, and improvement backlogs.
 
 ## Remaining recommendations
 
