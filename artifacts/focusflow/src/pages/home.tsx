@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useListProjects, useCreateProject, useGetProject, useDeleteProject, useUpdateProject, getListProjectsQueryKey, getGetProjectQueryKey } from "@workspace/api-client-react";
-import { Project, ProjectWithMessages, ProjectState } from "@workspace/api-client-react/src/generated/api.schemas";
+import { useListProjects, useCreateProject, useGetProject, useDeleteProject, useUpdateProject, getListProjectsQueryKey, getGetProjectQueryKey, ProjectState, Project } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Menu, Terminal, MessageSquare, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
 import ProjectDrawer from "@/components/ProjectDrawer";
 import ChatPanel from "@/components/ChatPanel";
@@ -18,28 +18,26 @@ export default function Home() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<TabView>("chat");
   const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
-  
+
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [buildMode, setBuildMode] = useState(false);
 
-  // Queries
   const { data: projects = [], isLoading: loadingProjects } = useListProjects();
-  const { data: currentProject, isLoading: loadingProject } = useGetProject(currentProjectId as number, { 
-    query: { enabled: !!currentProjectId, queryKey: getGetProjectQueryKey(currentProjectId as number) } 
+  const { data: currentProject, isLoading: loadingProject } = useGetProject(currentProjectId as number, {
+    query: { enabled: !!currentProjectId, queryKey: getGetProjectQueryKey(currentProjectId as number) }
   });
 
-  // Mutations
   const createProjectMut = useCreateProject();
   const deleteProjectMut = useDeleteProject();
   const updateProjectMut = useUpdateProject();
 
-  // Local state for optimistic updates during streaming/toggling
   const [localProjectState, setLocalProjectState] = useState<ProjectState | null>(null);
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
   const [localMessages, setLocalMessages] = useState<any[]>([]);
+  const [blueprintVersion, setBlueprintVersion] = useState(0);
 
-  // Initialize new project if none exists on load
   useEffect(() => {
     if (!loadingProjects && projects.length === 0 && !currentProjectId) {
       handleNewProject();
@@ -48,7 +46,6 @@ export default function Home() {
     }
   }, [projects, loadingProjects, currentProjectId]);
 
-  // Sync local state when project changes
   useEffect(() => {
     if (currentProject) {
       setLocalProjectState(currentProject.projectState || null);
@@ -76,6 +73,7 @@ export default function Home() {
     setCurrentProjectId(id);
     setDrawerOpen(false);
     setMobileTab("chat");
+    setBuildMode(false);
   };
 
   const handleDeleteProject = async (id: number, e: React.MouseEvent) => {
@@ -93,26 +91,19 @@ export default function Home() {
 
   const handleToggleComplete = async (sessionId: string) => {
     if (!currentProjectId) return;
-    
     const newCompleted = completedSessions.includes(sessionId)
-      ? completedSessions.filter(id => id !== sessionId)
+      ? completedSessions.filter((id: string) => id !== sessionId)
       : [...completedSessions, sessionId];
-      
     setCompletedSessions(newCompleted);
     setIsSyncing(true);
-    
     try {
-      await updateProjectMut.mutateAsync({ 
-        id: currentProjectId, 
-        data: { completedSessions: newCompleted } 
-      });
-      // Patch cache
-      queryClient.setQueryData(getGetProjectQueryKey(currentProjectId), (old: any) => 
+      await updateProjectMut.mutateAsync({ id: currentProjectId, data: { completedSessions: newCompleted } });
+      queryClient.setQueryData(getGetProjectQueryKey(currentProjectId), (old: any) =>
         old ? { ...old, completedSessions: newCompleted } : old
       );
     } catch (e) {
       toast({ title: "Error updating session", variant: "destructive" });
-      setCompletedSessions(completedSessions); // revert
+      setCompletedSessions(completedSessions);
     } finally {
       setIsSyncing(false);
     }
@@ -120,13 +111,14 @@ export default function Home() {
 
   const handleSendMessage = async (content: string) => {
     if (!currentProjectId) return;
-    
     const BASE = import.meta.env.BASE_URL;
+
     setIsStreaming(true);
+    setBuildMode(true);
     setStreamingContent("");
     setIsSyncing(true);
+    if (mobileTab === "chat") setMobileTab("board");
 
-    // Optimistic UI for user message
     const tempUserMsg = { id: Date.now(), projectId: currentProjectId, role: "user", content, createdAt: new Date().toISOString() };
     setLocalMessages(prev => [...prev, tempUserMsg]);
 
@@ -143,61 +135,56 @@ export default function Home() {
       const decoder = new TextDecoder();
       let buffer = "";
       let fullAssistantContent = "";
-      let finalProjectState = null;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
-        
+
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
               const json = JSON.parse(line.slice(6));
-              
               if (json.content) {
                 fullAssistantContent += json.content;
                 setStreamingContent(fullAssistantContent);
               }
               if (json.project_state) {
-                finalProjectState = json.project_state;
-                setLocalProjectState(finalProjectState);
-                if (mobileTab === "chat") {
-                    // Pulsing dot logic will be handled by UI observing projectState.sessions vs completed
-                }
-              }
-              if (json.done) {
-                // Done parsing
+                setLocalProjectState(json.project_state);
+                setBlueprintVersion(v => v + 1);
               }
             } catch (err) {
-              console.error("Error parsing SSE line", err);
+              // ignore parse errors on partial lines
             }
           }
         }
       }
 
-      // Refresh data
       await queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(currentProjectId) });
-      
     } catch (e) {
       toast({ title: "Error communicating with AI", variant: "destructive" });
     } finally {
       setIsStreaming(false);
       setStreamingContent("");
       setIsSyncing(false);
+      // Keep buildMode=true briefly so user can see the finished blueprint, then relax
+      setTimeout(() => setBuildMode(false), 600);
     }
   };
 
-  // Has available sessions (for mobile notification dot)
+  const handleSendAnnotation = (elementLabel: string, comment: string) => {
+    handleSendMessage(`[Feedback on "${elementLabel}"]: ${comment}`);
+  };
+
   const hasSessions = localProjectState?.sessions && localProjectState.sessions.length > 0;
   const uncompletedCount = localProjectState?.sessions?.filter(s => !completedSessions.includes(s.id)).length || 0;
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground flex-col md:flex-row font-sans">
-      <ProjectDrawer 
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground flex-col font-sans">
+      <ProjectDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         projects={projects}
@@ -212,7 +199,7 @@ export default function Home() {
         {/* Header */}
         <header className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0 bg-card z-10 relative">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} data-testid="button-menu" className="md:hidden">
+            <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} className="md:hidden">
               <Menu className="w-5 h-5" />
             </Button>
             <div className="flex items-center gap-2">
@@ -225,24 +212,24 @@ export default function Home() {
           </div>
 
           <div className="hidden md:flex items-center">
-             <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} data-testid="button-menu-desktop" className="text-muted-foreground hover:text-foreground">
-               <Menu className="w-5 h-5" />
-             </Button>
+            <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} className="text-muted-foreground hover:text-foreground">
+              <Menu className="w-5 h-5" />
+            </Button>
           </div>
 
           {/* Mobile Tabs */}
           <div className="flex md:hidden bg-muted/50 p-1 rounded-md border border-border">
-            <Button 
-              variant={mobileTab === "chat" ? "default" : "ghost"} 
-              size="sm" 
+            <Button
+              variant={mobileTab === "chat" ? "default" : "ghost"}
+              size="sm"
               className={`h-7 px-3 text-xs ${mobileTab === 'chat' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
               onClick={() => setMobileTab("chat")}
             >
               <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Chat
             </Button>
-            <Button 
-              variant={mobileTab === "board" ? "default" : "ghost"} 
-              size="sm" 
+            <Button
+              variant={mobileTab === "board" ? "default" : "ghost"}
+              size="sm"
               className={`h-7 px-3 text-xs relative ${mobileTab === 'board' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'}`}
               onClick={() => setMobileTab("board")}
             >
@@ -254,28 +241,40 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Content Area */}
+        {/* Content Area — layout animates based on buildMode */}
         <div className="flex-1 flex overflow-hidden relative">
-          
           {/* Left Panel (Chat) */}
-          <div className={`${mobileTab === 'chat' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[45%] lg:w-[40%] h-full shrink-0 z-10`}>
-            <ChatPanel 
+          <motion.div
+            layout
+            transition={{ type: "spring", stiffness: 300, damping: 35 }}
+            className={`${mobileTab === 'chat' ? 'flex' : 'hidden'} md:flex flex-col h-full shrink-0 z-10`}
+            style={{ width: buildMode ? "28%" : "42%" }}
+          >
+            <ChatPanel
               messages={localMessages}
               isStreaming={isStreaming}
               streamingContent={streamingContent}
+              isBuildMode={buildMode}
               onSendMessage={handleSendMessage}
             />
-          </div>
+          </motion.div>
 
           {/* Right Panel (Board) */}
-          <div className={`${mobileTab === 'board' ? 'flex' : 'hidden'} md:flex flex-col w-full md:w-[55%] lg:w-[60%] h-full bg-card shrink-0`}>
-            <BlueprintBoard 
+          <motion.div
+            layout
+            transition={{ type: "spring", stiffness: 300, damping: 35 }}
+            className={`${mobileTab === 'board' ? 'flex' : 'hidden'} md:flex flex-col h-full bg-card`}
+            style={{ width: buildMode ? "72%" : "58%" }}
+          >
+            <BlueprintBoard
               projectState={localProjectState}
               completedSessions={completedSessions}
               onToggleComplete={handleToggleComplete}
+              isStreaming={isStreaming}
+              blueprintVersion={blueprintVersion}
+              onSendAnnotation={handleSendAnnotation}
             />
-          </div>
-
+          </motion.div>
         </div>
       </div>
     </div>

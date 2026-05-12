@@ -1,10 +1,9 @@
 import React from "react";
-import { motion } from "framer-motion";
-import { CheckCircle2, Circle, Cpu, Layers } from "lucide-react";
+import { CheckCircle2, Circle, Cpu, Layers, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ProjectSession } from "@workspace/api-client-react/src/generated/api.schemas";
+import { ProjectSession } from "@workspace/api-client-react";
 
 interface SessionCardProps {
   session: ProjectSession;
@@ -13,99 +12,116 @@ interface SessionCardProps {
   onToggleComplete: (id: string) => void;
 }
 
-const modelColors: Record<string, string> = {
-  "OpenAI": "text-blue-400 border-blue-400 bg-blue-400/10",
-  "Gemini": "text-orange-400 border-orange-400 bg-orange-400/10",
-  "Z.AI": "text-teal-400 border-teal-400 bg-teal-400/10",
-  "GLM": "text-teal-400 border-teal-400 bg-teal-400/10",
+const modelColors: Record<string, { badge: string; bar: string }> = {
+  "OpenAI": { badge: "text-blue-400 border-blue-400/50 bg-blue-400/10", bar: "bg-blue-400" },
+  "Gemini": { badge: "text-orange-400 border-orange-400/50 bg-orange-400/10", bar: "bg-orange-400" },
+  "Z.AI":   { badge: "text-teal-400 border-teal-400/50 bg-teal-400/10",   bar: "bg-teal-400" },
+  "GLM":    { badge: "text-teal-400 border-teal-400/50 bg-teal-400/10",   bar: "bg-teal-400" },
 };
 
+const defaultColors = { badge: "text-primary border-primary/50 bg-primary/10", bar: "bg-primary" };
+
 export default function SessionCard({ session, index, isCompleted, onToggleComplete }: SessionCardProps) {
-  const modelColor = modelColors[session.recommended_agent] || "text-primary border-primary bg-primary/10";
+  const colors = modelColors[session.recommended_agent] ?? defaultColors;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
+    <Card
+      className={`relative overflow-hidden transition-all duration-300 ${
+        isCompleted ? "opacity-50 grayscale-[0.4]" : "hover:border-border/80"
+      }`}
+      data-testid={`card-session-${session.id}`}
     >
-      <Card className={`relative overflow-hidden transition-all ${isCompleted ? 'opacity-50 grayscale-[0.5]' : ''}`} data-testid={`card-session-${session.id}`}>
-        <CardHeader className="pb-3 border-b border-border/50">
-          <div className="flex items-start justify-between">
-            <div className="flex flex-col gap-1">
-              <Badge variant="outline" className="w-fit text-xs font-mono text-muted-foreground border-border">
-                SESSION_{session.id}
-              </Badge>
-              <CardTitle className={`text-lg mt-1 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>
-                {session.title}
-              </CardTitle>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="rounded-full shrink-0"
-              onClick={() => onToggleComplete(session.id)}
-              data-testid={`button-toggle-session-${session.id}`}
-            >
-              {isCompleted ? (
-                <CheckCircle2 className="w-6 h-6 text-primary" />
-              ) : (
-                <Circle className="w-6 h-6 text-muted-foreground" />
-              )}
-            </Button>
+      {/* Model color accent bar on left edge */}
+      <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${colors.bar} opacity-70`} />
+
+      <CardHeader className="pb-3 border-b border-border/50 pl-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1 min-w-0">
+            <Badge variant="outline" className="w-fit text-[10px] font-mono text-muted-foreground border-border px-1.5 py-0">
+              SESSION_{session.id || String(index + 1).padStart(2, "0")}
+            </Badge>
+            <CardTitle className={`text-base mt-0.5 leading-snug ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
+              {session.title}
+            </CardTitle>
           </div>
-          <p className="text-sm text-muted-foreground mt-2">{session.description}</p>
-        </CardHeader>
-        <CardContent className="pt-4 flex flex-col gap-4">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex flex-col gap-1.5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5" /> Route To
-              </div>
-              <Badge variant="outline" className={modelColor}>
-                {session.recommended_agent}
-              </Badge>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full shrink-0 h-8 w-8 hover:bg-primary/10"
+            onClick={e => { e.stopPropagation(); onToggleComplete(session.id); }}
+            data-testid={`button-toggle-session-${session.id}`}
+          >
+            {isCompleted
+              ? <CheckCircle2 className="w-5 h-5 text-primary" />
+              : <Circle className="w-5 h-5 text-muted-foreground" />
+            }
+          </Button>
+        </div>
+        {session.description && (
+          <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed pl-0">{session.description}</p>
+        )}
+      </CardHeader>
+
+      <CardContent className="pt-3 pb-4 pl-5 flex flex-col gap-3">
+        {/* Route + Stack row */}
+        <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col gap-1">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Cpu className="w-3 h-3" /> Route To
             </div>
-            <div className="flex flex-col gap-1.5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5" /> Stack Rules
+            <Badge variant="outline" className={`text-xs ${colors.badge}`}>
+              {session.recommended_agent}
+            </Badge>
+          </div>
+          {session.tech_stack_rules && (
+            <div className="flex flex-col gap-1">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                <Layers className="w-3 h-3" /> Stack Rules
               </div>
-              <div className="text-sm font-mono text-foreground/80 bg-muted px-2 py-1 rounded">
+              <div className="text-xs font-mono text-foreground/80 bg-muted px-2 py-0.5 rounded">
                 {session.tech_stack_rules}
               </div>
             </div>
-          </div>
-
-          {session.dependencies && session.dependencies.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Dependencies</div>
-              <div className="flex flex-wrap gap-2">
-                {session.dependencies.map(dep => (
-                  <Badge key={dep} variant="outline" className="text-yellow-500 border-yellow-500/50 bg-yellow-500/10">
-                    {dep}
-                  </Badge>
-                ))}
-              </div>
-            </div>
           )}
+        </div>
 
-          <div className="bg-muted/50 p-3 rounded-md border border-border">
-            <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Win Condition</div>
-            <div className="text-sm font-medium">{session.win_condition}</div>
+        {/* Win condition */}
+        {session.win_condition && (
+          <div className="bg-muted/50 px-3 py-2 rounded-md border border-border">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Win Condition</div>
+            <div className="text-sm font-medium leading-snug">{session.win_condition}</div>
           </div>
+        )}
 
-          {session.deliverables && session.deliverables.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Deliverables</div>
-              <ul className="list-disc list-inside pl-4 text-sm text-foreground/80 space-y-1">
-                {session.deliverables.map((del, i) => (
-                  <li key={i}>{del}</li>
-                ))}
-              </ul>
+        {/* Dependencies */}
+        {session.dependencies && session.dependencies.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Dependencies</div>
+            <div className="flex flex-wrap gap-1.5">
+              {session.dependencies.map((dep: string) => (
+                <Badge key={dep} variant="outline" className="text-yellow-400 border-yellow-400/40 bg-yellow-400/10 text-[10px]">
+                  {dep}
+                </Badge>
+              ))}
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </motion.div>
+          </div>
+        )}
+
+        {/* Deliverables */}
+        {session.deliverables && session.deliverables.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Deliverables</div>
+            <ul className="space-y-0.5">
+              {session.deliverables.map((del: string, i: number) => (
+                <li key={i} className="text-xs text-foreground/80 flex items-start gap-1.5">
+                  <span className="text-primary mt-0.5 shrink-0">›</span>
+                  {del}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

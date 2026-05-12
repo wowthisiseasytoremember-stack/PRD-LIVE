@@ -1,5 +1,5 @@
 import React from "react";
-import { Project } from "@workspace/api-client-react/src/generated/api.schemas";
+import { Project } from "@workspace/api-client-react";
 import { format } from "date-fns";
 import { Plus, Trash2, Folder, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
