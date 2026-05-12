@@ -1,15 +1,18 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FocusFlow API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: gemini
+    description: Gemini AI chat and image operations
+  - name: projects
+    description: FocusFlow project management
 paths:
   /healthz:
     get:
@@ -24,6 +27,131 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List all projects
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get project with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update project state
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /projects/{id}/messages:
+    post:
+      operationId: sendProjectMessage
+      tags: [projects]
+      summary: Send a message and receive an AI response (SSE stream)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectMessageInput"
+      responses:
+        "200":
+          description: SSE stream of assistant response chunks and project state updates
+          content:
+            text/event-stream: {}
 components:
   schemas:
     HealthStatus:
@@ -33,4 +161,164 @@ components:
           type: string
       required:
         - status
-
+    ProjectState:
+      type: object
+      properties:
+        goal:
+          type: string
+        outline:
+          type: array
+          items:
+            type: string
+        sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectSession"
+        obsidian_markdown:
+          type: string
+      required:
+        - goal
+        - outline
+        - sessions
+        - obsidian_markdown
+    ProjectSession:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        recommended_agent:
+          type: string
+        tech_stack_rules:
+          type: string
+        win_condition:
+          type: string
+        deliverables:
+          type: array
+          items:
+            type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - title
+        - description
+        - recommended_agent
+        - tech_stack_rules
+        - win_condition
+        - deliverables
+        - dependencies
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        projectState:
+          $ref: "#/components/schemas/ProjectState"
+        completedSessions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - projectState
+        - completedSessions
+        - createdAt
+        - updatedAt
+    ProjectWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        projectState:
+          $ref: "#/components/schemas/ProjectState"
+        completedSessions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectMessage"
+      required:
+        - id
+        - title
+        - projectState
+        - completedSessions
+        - createdAt
+        - updatedAt
+        - messages
+    ProjectMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - projectId
+        - role
+        - content
+        - createdAt
+    ProjectInput:
+      type: object
+      properties:
+        title:
+          type: string
+      required:
+        - title
+    ProjectUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        projectState:
+          $ref: "#/components/schemas/ProjectState"
+        completedSessions:
+          type: array
+          items:
+            type: string
+    ProjectMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
