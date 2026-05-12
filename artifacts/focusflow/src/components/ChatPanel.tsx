@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { ProjectMessage } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send, Loader2, Cpu, MessageSquarePlus } from "lucide-react";
+import { Sparkles, Send, Loader2, Cpu, MessageSquarePlus, WandSparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,97 @@ interface ChatPanelProps {
   streamingContent: string;
   isBuildMode: boolean;
   onSendMessage: (content: string) => void;
+}
+
+type PromptModel = "auto" | "glm" | "claude" | "gpt" | "gemini" | "deepseek" | "grok";
+
+type PromptRewriteResult = {
+  model: Exclude<PromptModel, "auto">;
+  label: string;
+  prompt: string;
+};
+
+const PROMPT_MODEL_OPTIONS: { value: PromptModel; label: string; helper: string }[] = [
+  { value: "auto", label: "Auto-pick", helper: "Let FocusFlow choose the best prompt style" },
+  { value: "glm", label: "GLM", helper: "Structured build specs and implementation detail" },
+  { value: "claude", label: "Claude", helper: "Context-rich reasoning with clear constraints" },
+  { value: "gpt", label: "GPT", helper: "Instruction-first execution with acceptance criteria" },
+  { value: "gemini", label: "Gemini", helper: "Multimodal research and source-aware planning" },
+  { value: "deepseek", label: "DeepSeek", helper: "Code-heavy decomposition and verification" },
+  { value: "grok", label: "Grok", helper: "Fast iteration with direct decision points" },
+];
+
+const MODEL_LABELS: Record<Exclude<PromptModel, "auto">, string> = {
+  glm: "GLM",
+  claude: "Claude",
+  gpt: "GPT",
+  gemini: "Gemini",
+  deepseek: "DeepSeek",
+  grok: "Grok",
+};
+
+function inferPromptModel(prompt: string): Exclude<PromptModel, "auto"> {
+  const normalized = prompt.toLowerCase();
+  if (/\b(image|video|screenshot|diagram|visual|multimodal|slides?|pdf|research|sources?)\b/.test(normalized)) return "gemini";
+  if (/\b(code|debug|refactor|api|database|schema|typescript|python|tests?|repo|bug|implementation)\b/.test(normalized)) return "deepseek";
+  if (/\b(strategy|ethics|policy|legal|memo|long context|analyze|reason|trade[- ]?offs?)\b/.test(normalized)) return "claude";
+  if (/\b(ship|mvp|product|plan|requirements?|acceptance criteria|workflow|user stories?)\b/.test(normalized)) return "gpt";
+  if (/\b(funny|tone|social|x post|tweet|hot take|current events?|roast)\b/.test(normalized)) return "grok";
+  return "glm";
+}
+
+function rewritePromptForModel(prompt: string, targetModel: PromptModel): PromptRewriteResult {
+  const trimmed = prompt.trim();
+  const model = targetModel === "auto" ? inferPromptModel(trimmed) : targetModel;
+  const label = MODEL_LABELS[model];
+
+  const sectionsByModel: Record<Exclude<PromptModel, "auto">, string[]> = {
+    glm: [
+      "Act as a precise implementation planner. Convert the request into a structured execution spec.",
+      "Prioritize concrete architecture, component boundaries, data flow, edge cases, and handoff-ready tasks.",
+      "Return: objective, assumptions, step-by-step plan, files/components to touch, risks, and done criteria.",
+    ],
+    claude: [
+      "Act as a careful senior collaborator. Reason through the request before proposing the final plan.",
+      "Make constraints explicit, compare trade-offs, and preserve important nuance from the source prompt.",
+      "Return: clarified goal, context, reasoning summary, recommended approach, caveats, and next actions.",
+    ],
+    gpt: [
+      "Act as an execution-focused product engineer. Follow the instructions exactly and optimize for a shippable result.",
+      "Use concise structure, clear priorities, and measurable acceptance criteria.",
+      "Return: final prompt interpretation, implementation steps, acceptance criteria, and validation checklist.",
+    ],
+    gemini: [
+      "Act as a multimodal research and planning assistant. Look for visual, document, and source-aware details that may matter.",
+      "Separate known facts from assumptions, call out missing assets, and suggest evidence to gather if needed.",
+      "Return: task framing, relevant inputs/assets, research questions, plan, and output format.",
+    ],
+    deepseek: [
+      "Act as a code-first systems engineer. Optimize for correctness, maintainability, and verifiable changes.",
+      "Break the work into implementation units, note dependencies, and include tests or checks for each unit.",
+      "Return: technical objective, proposed changes, pseudocode if helpful, test plan, and failure modes.",
+    ],
+    grok: [
+      "Act as a fast, direct iteration partner. Challenge weak assumptions and move quickly toward a useful draft.",
+      "Keep the response practical, opinionated, and easy to revise.",
+      "Return: best interpretation, direct recommendation, quick plan, open questions, and a first-pass output.",
+    ],
+  };
+
+  return {
+    model,
+    label,
+    prompt: [
+      `[Optimized for ${label}]`,
+      "",
+      ...sectionsByModel[model],
+      "",
+      "Original task:",
+      trimmed,
+      "",
+      "Before answering, ask only the minimum necessary clarifying questions. If the task is clear, proceed with the best reasonable assumptions and state them briefly.",
+    ].join("\n"),
+  };
 }
 
 // Parse annotation messages into a label + text pair
@@ -78,6 +169,8 @@ function MessageBubble({ role, content, isStreaming }: { role: string; content: 
 
 export default function ChatPanel({ messages, isStreaming, streamingContent, isBuildMode, onSendMessage }: ChatPanelProps) {
   const [input, setInput] = React.useState("");
+  const [promptModel, setPromptModel] = React.useState<PromptModel>("auto");
+  const [rewriteLabel, setRewriteLabel] = React.useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -87,11 +180,29 @@ export default function ChatPanel({ messages, isStreaming, streamingContent, isB
     }
   }, [messages, streamingContent]);
 
+  const resetTextareaHeight = () => {
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  };
+
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
     onSendMessage(input.trim());
     setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    setRewriteLabel(null);
+    resetTextareaHeight();
+  };
+
+  const handleRewritePrompt = () => {
+    if (!input.trim() || isStreaming) return;
+    const result = rewritePromptForModel(input, promptModel);
+    setInput(result.prompt);
+    setRewriteLabel(promptModel === "auto" ? `Auto picked ${result.label}` : `Rewritten for ${result.label}`);
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
+      textareaRef.current.focus();
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -100,6 +211,7 @@ export default function ChatPanel({ messages, isStreaming, streamingContent, isB
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    setRewriteLabel(null);
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
   };
@@ -235,7 +347,38 @@ export default function ChatPanel({ messages, isStreaming, streamingContent, isB
           </div>
         ) : (
           // ── Active input ──
-          <div className="relative group">
+          <div className="relative group space-y-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card/70 p-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <WandSparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <select
+                  value={promptModel}
+                  onChange={(event) => setPromptModel(event.target.value as PromptModel)}
+                  className="h-8 min-w-[118px] rounded-md border border-border bg-background px-2 text-xs font-mono text-foreground outline-none transition-colors focus:border-primary"
+                  aria-label="Prompt rewrite target model"
+                  data-testid="select-prompt-model"
+                >
+                  {PROMPT_MODEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <span className="hidden min-w-0 truncate text-[10px] text-muted-foreground sm:inline">
+                  {rewriteLabel ?? PROMPT_MODEL_OPTIONS.find(option => option.value === promptModel)?.helper}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRewritePrompt}
+                disabled={!input.trim()}
+                className="h-8 shrink-0 gap-1.5 border-primary/30 bg-primary/5 px-2.5 text-[11px] text-primary hover:bg-primary/10 hover:text-primary"
+                data-testid="button-rewrite-prompt"
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                Improve prompt
+              </Button>
+            </div>
             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-15 group-focus-within:opacity-40 transition duration-500" />
             <div className="relative flex items-end gap-2 bg-card rounded-lg border border-border p-2">
               <Textarea
