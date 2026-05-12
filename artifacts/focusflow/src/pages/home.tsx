@@ -5,7 +5,7 @@ import {
   ProjectState, Project,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Menu, Terminal, MessageSquare, LayoutDashboard, ArrowLeft } from "lucide-react";
+import { Menu, Terminal, MessageSquare, LayoutDashboard, ArrowLeft, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ProjectDrawer from "@/components/ProjectDrawer";
 import ChatPanel from "@/components/ChatPanel";
 import BlueprintBoard from "@/components/BlueprintBoard";
+import PromptForge from "@/components/PromptForge";
 
 type TabView = "chat" | "board";
 
@@ -22,6 +23,8 @@ export default function Home() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<TabView>("chat");
   const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
+
+  const [promptForgeOpen, setPromptForgeOpen] = useState(false);
 
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -230,7 +233,16 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center">
+          <div className="hidden md:flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPromptForgeOpen(true)}
+              className="text-muted-foreground hover:text-foreground gap-1.5 text-xs font-mono shrink-0"
+            >
+              <Wand2 className="w-4 h-4 shrink-0" />
+              Forge
+            </Button>
             <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} className="text-muted-foreground hover:text-foreground shrink-0">
               <Menu className="w-5 h-5 shrink-0" />
             </Button>
@@ -295,6 +307,8 @@ export default function Home() {
           </motion.div>
         </div>
       </div>
+
+      <PromptForge open={promptForgeOpen} onOpenChange={setPromptForgeOpen} />
 
       {/* Mobile "Return to Chat" FAB — shows when board is active during build */}
       <AnimatePresence>
