@@ -1,0 +1,27 @@
+# UX/UI Polish: The "Google Stitch" Experience
+We have the foundational mechanics working for our live-building UI (dynamic 72/28 panel resizing, scanning skeletons, staggered animations, and inline annotations).
+This is a bespoke, personal-use application. I do not care about scaling edge cases or enterprise hardening. I care about it being **beautiful, highly useful, hard to break during normal use, and feeling exactly like a live-rendering canvas.**
+Act as an Elite UX Engineer and apply the following refinements to make this feel like magic:
+## 1. The "Live Build" Illusion (Google Stitch Vibe)
+**Goal:** The user must feel like they are watching the AI physically construct the blueprint in real-time, block by block.
+ * **The "Build" Sequence:** Instead of everything just fading in at once, aggressively stagger the entry of the cards. The Goal card snaps in first, then the Structure card, then the Sessions slide in one-by-one from the side/bottom.
+ * **The Active Scanner:** While the AI is "thinking," the skeleton placeholders shouldn't just blink. Implement a "scanning" effect—a subtle, glowing gradient or line that sweeps across the empty cards left-to-right or top-to-bottom, mimicking a 3D printer or rendering engine at work.
+ * **Typing/Streaming Effect:** If possible within the current data flow, have the text content inside the cards appear as if it's being rapidly typed out or revealed, rather than popping in as a solid block.
+## 2. Fluid Layouts & Seamless Morphing
+**Goal:** The interface should feel like liquid. Panels should slide and morph without any harsh snapping or jank.
+ * **Smooth Panel Resizing:** The 72/28 split must happen on a spring physics curve (fast but with a slight, satisfying deceleration). During this resize, the chat history text inside the shrinking panel must not squish or break awkwardly—transition it cleanly.
+ * **Height Morphing:** When a "scanning skeleton" is replaced by the real data card, the container height must morph smoothly to fit the new text. Absolutely no violent page scrolling or snapping.
+ * **Smart Animation Re-triggering:** The dramatic "Stitch" build sequence described in Section 1 should *only* play when generating a brand new board. If I leave an inline comment to tweak just one session, only that specific card should pulse, flip, or re-render. Do not replay the whole board animation.
+## 3. Frictionless Inline Annotations (The "Canvas" Feel)
+**Goal:** Giving feedback should feel like writing directly on the blueprint with a red pen.
+ * **Instant Action:** Clicking a comment badge must instantly open the input box and autoFocus it immediately. Zero friction.
+ * **Effortless Dismissal:** Hitting Escape or clicking anywhere off the comment box must instantly close it.
+ * **Unbound Rendering:** The comment pop-ups cannot be clipped by overflow-hidden parents. They must float cleanly above the UI, complete with a crisp shadow and a visual pointer/arrow linking them to the card.
+ * **Contextual Chat Badges:** When an inline comment is sent, it must appear in the chat stream with a beautiful pill/tag (e.g., [Feedback on: Core Goal]) so the chat acts as a perfect ledger of changes.
+## 4. System Status & Mobile Flow
+**Goal:** The UI should guide my attention and never leave me guessing.
+ * **The "Locked" State:** When the chat shrinks to 28% and the board is building, the chat input should look deliberately "locked" (disabled styling, maybe a pulsing "Orchestrating..." badge with a glowing ping dot). It should look like a premium processing state.
+ * **Mobile Comfort:** On mobile, when the app auto-switches to the Board tab to show the build, there MUST be an obvious, floating "Return to Chat" FAB or highly visible tab to ensure I don't feel trapped while it renders.
+ * **Icon Resiliency:** Ensure all SVGs/icons have flex-shrink-0 so they never deform when panels resize.
+ * **Satisfying Progress:** Replace the simple text "3/7 complete" with a smooth, animated linear progress bar that fills up as I check off sessions.
+Make it beautiful. Make it smooth. Focus on the micro-interactions.
