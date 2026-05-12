@@ -18,6 +18,7 @@ export interface ProjectSession {
   win_condition: string;
   deliverables: string[];
   dependencies: string[];
+  optimized_agent_prompt?: string;
 }
 
 export interface ProjectState {

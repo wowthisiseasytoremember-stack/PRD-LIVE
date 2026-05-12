@@ -29,12 +29,29 @@ TECH STACK RULES:
 - For Zero-to-One New Apps: Default to the optimal stack (Next.js/React/Tailwind/shadcn) UNLESS there's a reason not to. Note that GLM-4.7 excels at "Vibe Coding" for this layer.
 - For Existing Codebases: Default to "audit and adapt". Only surface a refactor if broken.
 
+AUTONOMOUS PROMPT ARCHITECT — MANDATORY FOR EVERY SESSION:
+When you generate sessions in the JSON, each session MUST include an "optimized_agent_prompt" field.
+This is a complete, standalone, production-ready system prompt for the recommended AI model — engineered for maximum autonomy and minimum Human-In-The-Loop (HITL) interruptions.
+
+TRI-MODEL TRANSLATION MATRIX — apply the correct dialect per recommended_agent:
+
+• OPENAI (GPT-5): Use strict XML tags (<context>, <task>, <constraints>, <rules>, <thinking_process>). Open with a role-play persona e.g. "You are a senior staff engineer with 15 years of experience in...". Include explicit reasoning anchors inside <thinking_process> tags.
+
+• GEMINI (3.1/Pro): Front-load ALL context in the first paragraph. Use imperative command verbs (Analyze, Implement, Generate, Audit). No flowery personas. Enforce strict Markdown structure with ## headers for each section (## Context, ## Task, ## Constraints, ## Output Format).
+
+• Z.AI (GLM-4.7/5): Format as a stable AGENTS.md configuration block. Set "preserved_thinking: true" for any session involving multi-step logic or long context. For UI/frontend sessions, include "mode: vibe_coding" and use Vibe Coding keywords. Specify the exact model variant in a yaml-style header.
+
+ZERO-HITL GUARDRAILS — every optimized_agent_prompt MUST include ALL THREE of these:
+1. AUTONOMY DIRECTIVE: Explicitly instruct the agent to execute the ENTIRE task end-to-end without asking clarifying questions or pausing for intermediate human input. The only exception is a catastrophic, unresolvable blocker.
+2. SELF-VERIFICATION: Instruct the agent to self-verify its output against the session Win Condition before presenting results. Include the win condition verbatim in the prompt.
+3. HALT DIRECTIVE: End every prompt with this exact sentence verbatim: "Once you have verified your output against the win condition above, present ALL deliverables to the user in full and HALT. Do NOT proceed further. Await an explicit GO / NO-GO from the user before concluding this session."
+
 5-PHASE APPROACH:
 1. Define Goal.
 2. Rough Outline.
-3. Break into Sessions (Include exact AI Model Tier & Stack details in the JSON).
+3. Break into Sessions — each with routing, stack, win condition, deliverables, dependencies, AND optimized_agent_prompt.
 4. Define Win Conditions & Deliverables.
-5. Generate the Obsidian Master Plan (The overall lifecycle mapped out with checkboxes '- [ ]'). Fill 'obsidian_markdown'.
+5. Generate the Obsidian Master Plan. In obsidian_markdown, under EVERY session checkbox (- [ ] Session title), embed the optimized_agent_prompt in a fenced code block tagged \`\`\`prompt. A master agent must be able to parse this file top-to-bottom, extract each prompt sequentially, execute, receive GO/NO-GO, check the box, and advance to the next session.
 
 - Output in JSON format. Ask 1-2 questions at a time. Socratic tone.`;
 
@@ -203,11 +220,9 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
   try {
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      systemInstruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }],
-      },
       contents: conversationHistory,
       config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as const,
@@ -232,6 +247,7 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
                       win_condition: { type: "STRING" as const },
                       deliverables: { type: "ARRAY" as const, items: { type: "STRING" as const } },
                       dependencies: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+                      optimized_agent_prompt: { type: "STRING" as const },
                     },
                   },
                 },
@@ -274,6 +290,7 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
               win_condition: s.win_condition ?? "",
               deliverables: Array.isArray(s.deliverables) ? s.deliverables : [],
               dependencies: Array.isArray(s.dependencies) ? s.dependencies : [],
+              optimized_agent_prompt: typeof s.optimized_agent_prompt === "string" ? s.optimized_agent_prompt : undefined,
             })
           ),
           obsidian_markdown: parsed.project_state.obsidian_markdown ?? newProjectState.obsidian_markdown,

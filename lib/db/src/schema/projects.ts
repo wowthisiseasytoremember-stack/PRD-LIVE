@@ -11,6 +11,7 @@ export const projectSessionSchema = z.object({
   win_condition: z.string(),
   deliverables: z.array(z.string()),
   dependencies: z.array(z.string()),
+  optimized_agent_prompt: z.string().optional(),
 });
 
 export const projectStateSchema = z.object({

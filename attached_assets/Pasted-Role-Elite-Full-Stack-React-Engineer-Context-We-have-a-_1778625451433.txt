@@ -1,0 +1,32 @@
+Role: Elite Full-Stack React Engineer
+Context
+We have a fully functional React application (FocusFlow) that acts as a Socratic AI Orchestrator. It breaks user ideas into "Sessions" and routes them to specific AI models (OpenAI vs. Gemini vs. Z.AI GLM).
+I have a new capability I want to integrate: The Autonomous Prompt Architect.
+Currently, the app tells the user which model to use. I want it to actually write the optimized prompt for that model, designed specifically for maximum autonomy and minimum Human-In-The-Loop (HITL).
+The ultimate goal is for the user to hand the final exported PRD/Markdown file to a master agent and have it run the entire project lifecycle sequentially, only pausing for explicit "go/no-go" approvals at the end of each session.
+The Objective
+Update the AI generation logic and the Frontend UI so that for every execution session generated, the AI also generates a bespoke, highly-engineered System Prompt. This prompt must be tailored to the specific "dialect" of the recommended model and explicitly programmed for autonomous execution.
+Please implement this feature by following these specific steps:
+1. Update the AI System Instruction (The Backend)
+Inside the handleSend function where the systemInstruction is defined, inject the "Tri-Model Translation Matrix" and the "Zero-HITL Guardrails".
+Instruct the AI to write an optimized_agent_prompt for each session using these rules:
+• Dialect Formatting: - OpenAI (GPT-5): Use strict XML tags (<context>, <task>, <rules>), role-play personas, and explicit reasoning anchors (<thinking_process>).
+• Gemini (3.1/Pro): Front-load context, use high directness (no flowery personas), command verbs, and strict Markdown formatting.
+• Z.AI (GLM-4.7/5): Format like a stable AGENTS.md configuration file. State whether to enable "Preserved Thinking". If UI, use "Vibe Coding" keywords.
+• Maximum Autonomy & HITL Junctures (CRITICAL): - Every generated prompt MUST explicitly instruct the receiving agent to execute the task entirely autonomously without asking for intermediate help unless catastrophically blocked.
+• The prompt MUST instruct the agent to self-verify its work against the Session's "Win Condition."
+• The prompt MUST conclude with a strict directive: "Once verified, present the deliverables to the user and HALT. Ask the user for an explicit 'GO / NO-GO' approval before concluding this session."
+2. Update the JSON Schema
+Modify the responseSchema payload in the API call. Inside the sessions array items, add a new required property:
+3. Update the UI/UX (The Session Cards)
+I need a beautiful, frictionless way to access this generated prompt on the front end.
+• Inside each mapped Session card on the Blueprint board, add a new UI element: a "Terminal/Prompt" toggle button.
+• When clicked, it should smoothly expand a code block (using Framer Motion AnimatePresence or CSS transitions so it doesn't jank the layout).
+• The code block should look like a sleek terminal or dark-mode editor (e.g., bg-[#0D1117], syntax highlighting colors, monospace font).
+• Inside this block, display the optimized_agent_prompt.
+• Include a dedicated "Copy Prompt" icon button inside the block that copies the text to the clipboard and shows a temporary success checkmark.
+4. Constraints & The Autonomous Master Ledger
+• Do not break the Firebase sync: Ensure this new string data naturally flows into the projectState and saves to Firestore.
+• Do not break animations: Ensure the expansion of the prompt code block plays nicely with the existing staggering animations.
+• The Obsidian Export IS The Master Script: The obsidian_markdown generated in Phase 5 must now act as an autonomous ledger. Under every session checkbox (- [ ]), elegantly embed the optimized_agent_prompt inside a Markdown code block. A master agent reading this file should be able to parse it top-to-bottom, extract the prompt for Session 1, run it, get the human GO/NO-GO, check the box, and automatically move to Session 2.
+Execute this feature addition carefully. Ensure the UI remains breathtaking and functional.
