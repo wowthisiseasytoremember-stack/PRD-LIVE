@@ -203,11 +203,9 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
   try {
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
-      systemInstruction: {
-        parts: [{ text: SYSTEM_INSTRUCTION }],
-      },
       contents: conversationHistory,
       config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         responseSchema: {
           type: "OBJECT" as const,
@@ -248,7 +246,6 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
       const text = chunk.text;
       if (text) {
         fullResponse += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }
     }
 

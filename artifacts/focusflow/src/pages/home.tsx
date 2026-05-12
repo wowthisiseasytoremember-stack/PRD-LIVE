@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   useListProjects, useCreateProject, useGetProject, useDeleteProject,
   useUpdateProject, getListProjectsQueryKey, getGetProjectQueryKey,
-  ProjectState, Project,
+  ProjectState, Project, ProjectMessage, ProjectWithMessages,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Menu, Terminal, MessageSquare, LayoutDashboard, ArrowLeft } from "lucide-react";
@@ -40,7 +40,7 @@ export default function Home() {
 
   const [localProjectState, setLocalProjectState] = useState<ProjectState | null>(null);
   const [completedSessions, setCompletedSessions] = useState<string[]>([]);
-  const [localMessages, setLocalMessages] = useState<any[]>([]);
+  const [localMessages, setLocalMessages] = useState<ProjectMessage[]>([]);
   const [blueprintVersion, setBlueprintVersion] = useState(0);
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function Home() {
     setIsSyncing(true);
     try {
       await updateProjectMut.mutateAsync({ id: currentProjectId, data: { completedSessions: newCompleted } });
-      queryClient.setQueryData(getGetProjectQueryKey(currentProjectId), (old: any) =>
+      queryClient.setQueryData<ProjectWithMessages | undefined>(getGetProjectQueryKey(currentProjectId), (old) =>
         old ? { ...old, completedSessions: newCompleted } : old,
       );
     } catch {
@@ -126,7 +126,7 @@ export default function Home() {
     setIsSyncing(true);
     if (mobileTab === "chat") setMobileTab("board");
 
-    const tempUserMsg = {
+    const tempUserMsg: ProjectMessage = {
       id: Date.now(), projectId: currentProjectId,
       role: "user", content, createdAt: new Date().toISOString(),
     };
@@ -140,11 +140,13 @@ export default function Home() {
       });
       if (!res.ok) throw new Error("Failed to send message");
 
-      const reader = res.body!.getReader();
+      if (!res.body) throw new Error("No response body returned");
+
+      const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
       let fullAssistantContent = "";
-      let finalProjectState: any = null;
+      let finalProjectState: ProjectState | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -160,6 +162,17 @@ export default function Home() {
                 fullAssistantContent += json.content;
                 setStreamingContent(fullAssistantContent);
               }
+              if (json.assistant_content) {
+                fullAssistantContent = json.assistant_content;
+                const assistantMessage: ProjectMessage = {
+                  id: Date.now() + 1,
+                  projectId: currentProjectId,
+                  role: "assistant",
+                  content: json.assistant_content,
+                  createdAt: new Date().toISOString(),
+                };
+                setLocalMessages(prev => [...prev, assistantMessage]);
+              }
               if (json.project_state) {
                 finalProjectState = json.project_state;
                 setLocalProjectState(json.project_state);
@@ -174,7 +187,7 @@ export default function Home() {
 
       // Auto-rename "New Project" → derived from goal after first blueprint
       if (!isAnnotation && finalProjectState?.goal) {
-        const cached = queryClient.getQueryData(getGetProjectQueryKey(currentProjectId)) as any;
+        const cached = queryClient.getQueryData<ProjectWithMessages>(getGetProjectQueryKey(currentProjectId));
         if (cached?.title === "New Project") {
           const derived = finalProjectState.goal.length > 52
             ? finalProjectState.goal.slice(0, 49).trimEnd() + "…"
@@ -199,7 +212,7 @@ export default function Home() {
   };
 
   const hasSessions = localProjectState?.sessions && localProjectState.sessions.length > 0;
-  const uncompletedCount = localProjectState?.sessions?.filter((s: any) => !completedSessions.includes(s.id)).length || 0;
+  const uncompletedCount = localProjectState?.sessions?.filter((session) => !completedSessions.includes(session.id)).length || 0;
 
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground flex-col font-sans">
