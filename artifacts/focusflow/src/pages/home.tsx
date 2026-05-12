@@ -144,6 +144,7 @@ export default function Home() {
       const decoder = new TextDecoder();
       let buffer = "";
       let fullAssistantContent = "";
+      let finalProjectState: any = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -160,6 +161,7 @@ export default function Home() {
                 setStreamingContent(fullAssistantContent);
               }
               if (json.project_state) {
+                finalProjectState = json.project_state;
                 setLocalProjectState(json.project_state);
                 setBlueprintVersion(v => v + 1);
               }
@@ -167,7 +169,20 @@ export default function Home() {
           }
         }
       }
+
       await queryClient.invalidateQueries({ queryKey: getGetProjectQueryKey(currentProjectId) });
+
+      // Auto-rename "New Project" → derived from goal after first blueprint
+      if (!isAnnotation && finalProjectState?.goal) {
+        const cached = queryClient.getQueryData(getGetProjectQueryKey(currentProjectId)) as any;
+        if (cached?.title === "New Project") {
+          const derived = finalProjectState.goal.length > 52
+            ? finalProjectState.goal.slice(0, 49).trimEnd() + "…"
+            : finalProjectState.goal;
+          await updateProjectMut.mutateAsync({ id: currentProjectId, data: { title: derived } });
+          queryClient.invalidateQueries({ queryKey: getListProjectsQueryKey() });
+        }
+      }
     } catch {
       toast({ title: "Error communicating with AI", variant: "destructive" });
     } finally {
@@ -179,6 +194,7 @@ export default function Home() {
   };
 
   const handleSendAnnotation = (elementLabel: string, comment: string) => {
+    toast({ title: `Feedback sent`, description: `Re: ${elementLabel}` });
     handleSendMessage(`[Feedback on "${elementLabel}"]: ${comment}`, true);
   };
 

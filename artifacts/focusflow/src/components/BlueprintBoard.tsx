@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ProjectState, ProjectSession } from "@workspace/api-client-react";
-import { Copy, Download, Zap, MessageSquarePlus, X, Send, ChevronRight } from "lucide-react";
+import { Copy, Download, Zap, MessageSquarePlus, X, Send, ChevronRight, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -292,6 +292,14 @@ export default function BlueprintBoard({
 }: BlueprintBoardProps) {
   const { toast } = useToast();
   const [activeAnnotation, setActiveAnnotation] = useState<ActiveAnnotation | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to top of board when a new blueprint arrives
+  useEffect(() => {
+    if (!isBlueprintNew) return;
+    const viewport = boardRef.current?.querySelector("[data-radix-scroll-area-viewport]");
+    if (viewport) viewport.scrollTop = 0;
+  }, [blueprintVersion, isBlueprintNew]);
 
   // Track which session IDs were already known so only truly new ones animate
   const prevSessionIdsRef = useRef<Set<string>>(new Set());
@@ -384,25 +392,40 @@ export default function BlueprintBoard({
           </div>
         </div>
 
-        {/* Animated progress bar — only shown when sessions exist */}
+        {/* Animated progress bar + completion celebration */}
         {totalSessions > 0 && (
-          <div className="px-4 pb-2.5 flex items-center gap-3">
-            <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-primary rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${progressPct}%` }}
-                transition={{ type: "spring", stiffness: 90, damping: 18 }}
-              />
+          <div className="px-4 pb-2.5 space-y-1.5">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-1 bg-border rounded-full overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full ${progressPct === 100 ? "bg-primary shadow-[0_0_8px_hsl(151,100%,46%,0.6)]" : "bg-primary"}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progressPct}%` }}
+                  transition={{ type: "spring", stiffness: 90, damping: 18 }}
+                />
+              </div>
+              <span className="text-[10px] font-mono text-muted-foreground shrink-0 tabular-nums">
+                {completedCount}/{totalSessions}
+              </span>
             </div>
-            <span className="text-[10px] font-mono text-muted-foreground shrink-0 tabular-nums">
-              {completedCount}/{totalSessions}
-            </span>
+            <AnimatePresence>
+              {progressPct === 100 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-center gap-1.5 text-[11px] font-mono text-primary"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  All sessions complete — project done!
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" ref={boardRef}>
         <AnimatePresence mode="wait">
           {/* Building skeleton */}
           {isStreaming && !hasState && (

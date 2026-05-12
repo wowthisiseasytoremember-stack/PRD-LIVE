@@ -1,5 +1,5 @@
-import React from "react";
-import { CheckCircle2, Circle, Cpu, Layers } from "lucide-react";
+import React, { useState } from "react";
+import { CheckCircle2, Circle, Cpu, Layers, ClipboardCopy, Check } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,16 +13,43 @@ interface SessionCardProps {
   onToggleComplete: (id: string) => void;
 }
 
-const MODEL_STYLES: Record<string, { badge: string; bar: string; label: string }> = {
-  OpenAI: { badge: "text-blue-400 border-blue-400/40 bg-blue-400/8",   bar: "bg-blue-400",   label: "OpenAI" },
-  Gemini: { badge: "text-orange-400 border-orange-400/40 bg-orange-400/8", bar: "bg-orange-400", label: "Gemini" },
-  "Z.AI": { badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",   bar: "bg-teal-400",   label: "Z.AI" },
-  GLM:    { badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",   bar: "bg-teal-400",   label: "GLM" },
+const MODEL_STYLES: Record<string, { badge: string; bar: string }> = {
+  OpenAI: { badge: "text-blue-400 border-blue-400/40 bg-blue-400/8",     bar: "bg-blue-400" },
+  Gemini: { badge: "text-orange-400 border-orange-400/40 bg-orange-400/8", bar: "bg-orange-400" },
+  "Z.AI": { badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",     bar: "bg-teal-400" },
+  GLM:    { badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",     bar: "bg-teal-400" },
 };
-const DEFAULT_STYLE = { badge: "text-primary border-primary/40 bg-primary/8", bar: "bg-primary", label: "AI" };
+const DEFAULT_STYLE = { badge: "text-primary border-primary/40 bg-primary/8", bar: "bg-primary" };
+
+function buildPrompt(session: ProjectSession, index: number): string {
+  const lines: string[] = [
+    `# Session ${session.id || index + 1}: ${session.title}`,
+    "",
+  ];
+  if (session.description) lines.push(session.description, "");
+  if (session.tech_stack_rules) lines.push(`**Stack rules:** ${session.tech_stack_rules}`, "");
+  if (session.win_condition) lines.push(`**Win condition:** ${session.win_condition}`, "");
+  if (session.deliverables?.length) {
+    lines.push("**Deliverables:**");
+    session.deliverables.forEach((d: string) => lines.push(`- ${d}`));
+    lines.push("");
+  }
+  if (session.dependencies?.length) {
+    lines.push(`**Depends on:** ${session.dependencies.join(", ")}`);
+  }
+  return lines.join("\n").trim();
+}
 
 export default function SessionCard({ session, index, isCompleted, isNew = false, onToggleComplete }: SessionCardProps) {
   const style = MODEL_STYLES[session.recommended_agent] ?? DEFAULT_STYLE;
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyPrompt = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(buildPrompt(session, index));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <Card
@@ -35,8 +62,8 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
       <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${style.bar} opacity-60 shrink-0`} />
 
       <CardHeader className="pb-2.5 border-b border-border/40 pl-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <Badge
               variant="outline"
               className="w-fit text-[10px] font-mono text-muted-foreground border-border/60 px-1.5 py-0"
@@ -53,19 +80,33 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
             </CardTitle>
           </div>
 
-          {/* Complete toggle */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="rounded-full shrink-0 h-8 w-8 hover:bg-primary/10 mt-0.5"
-            onClick={e => { e.stopPropagation(); onToggleComplete(session.id); }}
-            data-testid={`button-toggle-session-${session.id}`}
-          >
-            {isCompleted
-              ? <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-              : <Circle className="w-5 h-5 text-muted-foreground shrink-0" />
-            }
-          </Button>
+          {/* Actions: copy prompt + complete toggle */}
+          <div className="flex items-center gap-1 shrink-0 mt-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground"
+              onClick={handleCopyPrompt}
+              title={`Copy prompt for ${session.recommended_agent}`}
+            >
+              {copied
+                ? <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                : <ClipboardCopy className="w-3.5 h-3.5 shrink-0" />
+              }
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-full h-8 w-8 hover:bg-primary/10"
+              onClick={e => { e.stopPropagation(); onToggleComplete(session.id); }}
+              data-testid={`button-toggle-session-${session.id}`}
+            >
+              {isCompleted
+                ? <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                : <Circle className="w-5 h-5 text-muted-foreground shrink-0" />
+              }
+            </Button>
+          </div>
         </div>
 
         {session.description && (
@@ -95,7 +136,7 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <Layers className="w-3 h-3 shrink-0" /> Stack Rules
               </div>
-              <div className="text-xs font-mono text-foreground/80 bg-muted px-2 py-0.5 rounded truncate max-w-[180px]">
+              <div className="text-xs font-mono text-foreground/80 bg-muted px-2 py-0.5 rounded truncate max-w-[200px]">
                 {session.tech_stack_rules}
               </div>
             </div>
@@ -145,6 +186,14 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {/* Copy prompt hint — only on hover via CSS group */}
+        {copied && (
+          <div className="text-[10px] font-mono text-primary/70 flex items-center gap-1">
+            <Check className="w-3 h-3 shrink-0" />
+            Prompt copied — paste into {session.recommended_agent}
           </div>
         )}
       </CardContent>

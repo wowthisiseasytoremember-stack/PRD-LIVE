@@ -163,12 +163,32 @@ export default function ChatPanel({ messages, isStreaming, streamingContent, isB
             ref={scrollRef}
           >
             {messages.length === 0 && !streamingContent ? (
-              <div className="h-full flex flex-col items-center justify-center text-center max-w-xs mx-auto space-y-3 opacity-55">
-                <Sparkles className="w-10 h-10 text-primary mb-1 shrink-0" />
-                <p className="text-base font-medium text-foreground">Tri-Model Orchestration</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Describe your project. FocusFlow will Socratically break it into 45–90 min sessions and route each to the best AI model.
-                </p>
+              <div className="h-full flex flex-col items-center justify-center max-w-xs mx-auto py-8 gap-6">
+                <div className="text-center space-y-2 opacity-70">
+                  <Sparkles className="w-9 h-9 text-primary mx-auto mb-1 shrink-0" />
+                  <p className="text-sm font-medium text-foreground">Tri-Model Orchestration</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Describe any project. FocusFlow breaks it into 45–90 min sessions and routes each to the optimal AI.
+                  </p>
+                </div>
+                {/* Clickable starter prompts */}
+                <div className="w-full space-y-2">
+                  <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground/60 text-center">Try one of these</p>
+                  {[
+                    "Build a SaaS analytics dashboard with React and Supabase",
+                    "Plan a mobile fitness app with AI coaching features",
+                    "Create an automated content pipeline with AI writing",
+                    "Design a personal finance tracker with investment insights",
+                  ].map((prompt) => (
+                    <button
+                      key={prompt}
+                      onClick={() => onSendMessage(prompt)}
+                      className="w-full text-left text-xs text-muted-foreground border border-border/60 rounded-lg px-3 py-2.5 bg-card/50 hover:bg-card hover:border-primary/30 hover:text-foreground transition-all duration-150 leading-relaxed"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="flex flex-col pb-4">
