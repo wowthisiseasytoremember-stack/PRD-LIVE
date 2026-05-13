@@ -13,7 +13,8 @@ import {
   ProjectWithMessages,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Menu, Terminal, MessageSquare, LayoutDashboard, ArrowLeft, Wand2 } from "lucide-react";
+import { Link } from "wouter";
+import { Menu, Terminal, MessageSquare, LayoutDashboard, ArrowLeft, WandSparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,7 +34,7 @@ export default function Home() {
   const [mobileTab, setMobileTab] = useState<TabView>("chat");
   const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
 
-  const [promptForgeOpen, setPromptForgeOpen] = useState(false);
+
 
   const [streamingContent, setStreamingContent] = useState("");
   const [streamStatus, setStreamStatus] = useState("");
@@ -263,15 +264,12 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setPromptForgeOpen(true)}
-              className="text-muted-foreground hover:text-foreground gap-1.5 text-xs font-mono shrink-0"
-            >
-              <Wand2 className="w-4 h-4 shrink-0" />
-              Forge
+          <div className="hidden md:flex items-center gap-2">
+            <Button asChild variant="outline" size="sm" className="gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+              <Link href="/prompt-generator">
+                <WandSparkles className="w-3.5 h-3.5 shrink-0" />
+                Prompt Generator
+              </Link>
             </Button>
             <Button variant="ghost" size="icon" onClick={() => setDrawerOpen(true)} className="text-muted-foreground hover:text-foreground shrink-0">
               <Menu className="w-5 h-5 shrink-0" />
@@ -279,7 +277,13 @@ export default function Home() {
           </div>
 
           {/* Mobile tabs */}
-          <div className="flex md:hidden bg-muted/50 p-1 rounded-md border border-border">
+          <div className="flex md:hidden items-center gap-2">
+            <Button asChild variant="ghost" size="icon" className="text-muted-foreground">
+              <Link href="/prompt-generator" aria-label="Open prompt generator">
+                <WandSparkles className="w-4 h-4 shrink-0" />
+              </Link>
+            </Button>
+            <div className="flex bg-muted/50 p-1 rounded-md border border-border">
             <Button
               variant={mobileTab === "chat" ? "default" : "ghost"}
               size="sm"
@@ -299,6 +303,7 @@ export default function Home() {
                 <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
               )}
             </Button>
+            </div>
           </div>
         </header>
 
@@ -340,7 +345,7 @@ export default function Home() {
         </div>
       </div>
 
-      <PromptForge open={promptForgeOpen} onOpenChange={setPromptForgeOpen} />
+
 
       {/* Mobile "Return to Chat" FAB — shows when board is active during build */}
       <AnimatePresence>

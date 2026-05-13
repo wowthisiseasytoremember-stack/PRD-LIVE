@@ -1,10 +1,11 @@
 import React, { useRef, useEffect } from "react";
 import { ProjectMessage } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send, Loader2, Cpu, MessageSquarePlus } from "lucide-react";
+import { Sparkles, Send, Loader2, Cpu, MessageSquarePlus, WandSparkles } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PROMPT_MODEL_OPTIONS, PromptModel, rewritePromptForModel } from "@/lib/prompt-rewriter";
 
 interface ChatPanelProps {
   messages: ProjectMessage[];
@@ -108,6 +109,8 @@ export default function ChatPanel({
   onSendMessage,
 }: ChatPanelProps) {
   const [input, setInput] = React.useState("");
+  const [promptModel, setPromptModel] = React.useState<PromptModel>("auto");
+  const [rewriteLabel, setRewriteLabel] = React.useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -117,11 +120,29 @@ export default function ChatPanel({
     }
   }, [messages, streamingContent]);
 
+  const resetTextareaHeight = () => {
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  };
+
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
     onSendMessage(input.trim());
     setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    setRewriteLabel(null);
+    resetTextareaHeight();
+  };
+
+  const handleRewritePrompt = () => {
+    if (!input.trim() || isStreaming) return;
+    const result = rewritePromptForModel(input, promptModel);
+    setInput(result.prompt);
+    setRewriteLabel(promptModel === "auto" ? `Auto picked ${result.label}` : `Rewritten for ${result.label}`);
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
+      textareaRef.current.focus();
+    });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -133,6 +154,7 @@ export default function ChatPanel({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    setRewriteLabel(null);
     e.target.style.height = "auto";
     e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
   };
@@ -298,7 +320,38 @@ export default function ChatPanel({
           </div>
         ) : (
           // ── Active input ──
-          <div className="relative group">
+          <div className="relative group space-y-2">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/70 bg-card/70 p-2">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <WandSparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <select
+                  value={promptModel}
+                  onChange={(event) => setPromptModel(event.target.value as PromptModel)}
+                  className="h-8 min-w-[118px] rounded-md border border-border bg-background px-2 text-xs font-mono text-foreground outline-none transition-colors focus:border-primary"
+                  aria-label="Prompt rewrite target model"
+                  data-testid="select-prompt-model"
+                >
+                  {PROMPT_MODEL_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <span className="hidden min-w-0 truncate text-[10px] text-muted-foreground sm:inline">
+                  {rewriteLabel ?? PROMPT_MODEL_OPTIONS.find(option => option.value === promptModel)?.helper}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRewritePrompt}
+                disabled={!input.trim()}
+                className="h-8 shrink-0 gap-1.5 border-primary/30 bg-primary/5 px-2.5 text-[11px] text-primary hover:bg-primary/10 hover:text-primary"
+                data-testid="button-rewrite-prompt"
+              >
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                Improve prompt
+              </Button>
+            </div>
             <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-secondary rounded-lg blur opacity-15 group-focus-within:opacity-40 transition duration-500" />
             <div className="relative flex items-end gap-2 bg-card rounded-lg border border-border p-2">
               <Textarea
