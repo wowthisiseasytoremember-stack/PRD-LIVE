@@ -1,22 +1,19 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 
-if (!process.env.AI_INTEGRATIONS_GEMINI_BASE_URL) {
+
+const apiKey = process.env.AI_INTEGRATIONS_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+
+if (!apiKey) {
   throw new Error(
-    "AI_INTEGRATIONS_GEMINI_BASE_URL must be set. Did you forget to provision the Gemini AI integration?",
+    "Gemini API key must be set (AI_INTEGRATIONS_GEMINI_API_KEY or GEMINI_API_KEY).",
   );
 }
 
-if (!process.env.AI_INTEGRATIONS_GEMINI_API_KEY) {
-  throw new Error(
-    "AI_INTEGRATIONS_GEMINI_API_KEY must be set. Did you forget to provision the Gemini AI integration?",
-  );
-}
-
-export const ai = new GoogleGenAI({
-  apiKey: process.env.AI_INTEGRATIONS_GEMINI_API_KEY,
+export const ai = new GoogleGenAI({ 
+  apiKey,
   httpOptions: {
-    apiVersion: "",
-    baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL,
+    apiVersion: "v1beta",
+    ...(process.env.AI_INTEGRATIONS_GEMINI_BASE_URL ? { baseUrl: process.env.AI_INTEGRATIONS_GEMINI_BASE_URL } : {}),
   },
 });
 

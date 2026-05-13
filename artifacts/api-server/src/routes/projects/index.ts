@@ -277,7 +277,7 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
     writeSse(res, { status: "Reading project context…" });
 
     const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: conversationHistory,
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,

@@ -125,7 +125,6 @@ function buildPrompt(session: ProjectSession, index: number): string {
   }
   return lines.join("\n").trim();
 }
-}
 
 export default function SessionCard({
   session,
