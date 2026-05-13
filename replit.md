@@ -4,14 +4,17 @@ A Tri-Model AI Orchestrator that acts as a Socratic project manager — it break
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
-- `pnpm --filter @workspace/focusflow run dev` — run the frontend (port 20417)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (requires `PORT`)
+- `pnpm --filter @workspace/focusflow run dev` — run the frontend (requires `PORT` and `BASE_PATH`)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
 - Required env: `AI_INTEGRATIONS_GEMINI_BASE_URL`, `AI_INTEGRATIONS_GEMINI_API_KEY` — auto-set by Replit AI Integrations
+- LLM handoff doc: `docs/LLM_CONTEXT.md`
+- Current audit: `docs/AUDIT.md`
+- Comparison-ready review and next steps: `docs/COMPARATIVE_REVIEW.md`
 
 ## Stack
 
@@ -39,8 +42,8 @@ A Tri-Model AI Orchestrator that acts as a Socratic project manager — it break
 ## Architecture decisions
 
 - Gemini AI integration uses Replit AI Integrations proxy — no API key required from user
-- Chat responses use SSE streaming for real-time output
-- AI responds in structured JSON (`chat_response` + `project_state`) — server parses and streams text, then sends project state update on completion
+- Chat responses use an SSE-compatible endpoint; the server emits a clean final `done` event with `assistant_content` and `project_state`
+- AI responds in structured JSON (`chat_response` + `project_state`) — server accumulates and parses the JSON before updating the UI, which prevents raw JSON fragments from rendering as chat text
 - Projects and messages persist in PostgreSQL (no Firebase dependency)
 - Single-page app with no routing — all state managed in `home.tsx`
 
@@ -65,4 +68,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Pointers
 
+- Start with `README.md` for project setup and `docs/LLM_CONTEXT.md` for LLM-optimized architecture notes
+- See `docs/AUDIT.md` for known issues and follow-up priorities
+- See `docs/COMPARATIVE_REVIEW.md` when comparing this app to another similar product
 - See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details

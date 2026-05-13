@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { CheckCircle2, Circle, Cpu, Layers, ClipboardCopy, Check, Terminal, ChevronDown } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  Cpu,
+  Layers,
+  ClipboardCopy,
+  Check,
+  ChevronDown,
+  Terminal,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,12 +24,37 @@ interface SessionCardProps {
 }
 
 const MODEL_STYLES: Record<string, { badge: string; bar: string }> = {
-  OpenAI: { badge: "text-blue-400 border-blue-400/40 bg-blue-400/8",     bar: "bg-blue-400" },
-  Gemini: { badge: "text-orange-400 border-orange-400/40 bg-orange-400/8", bar: "bg-orange-400" },
-  "Z.AI": { badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",     bar: "bg-teal-400" },
-  GLM:    { badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",     bar: "bg-teal-400" },
+  OpenAI: {
+    badge: "text-blue-400 border-blue-400/40 bg-blue-400/8",
+    bar: "bg-blue-400",
+  },
+  Gemini: {
+    badge: "text-orange-400 border-orange-400/40 bg-orange-400/8",
+    bar: "bg-orange-400",
+  },
+  "Z.AI": {
+    badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",
+    bar: "bg-teal-400",
+  },
+  GLM: {
+    badge: "text-teal-400 border-teal-400/40 bg-teal-400/8",
+    bar: "bg-teal-400",
+  },
 };
-const DEFAULT_STYLE = { badge: "text-primary border-primary/40 bg-primary/8", bar: "bg-primary" };
+const DEFAULT_STYLE = {
+  badge: "text-primary border-primary/40 bg-primary/8",
+  bar: "bg-primary",
+};
+
+function getModelStyle(agent: string): { badge: string; bar: string } {
+  const normalized = agent.toLowerCase();
+  if (normalized.includes("openai") || normalized.includes("gpt"))
+    return MODEL_STYLES.OpenAI;
+  if (normalized.includes("gemini")) return MODEL_STYLES.Gemini;
+  if (normalized.includes("z.ai") || normalized.includes("glm"))
+    return MODEL_STYLES["Z.AI"];
+  return DEFAULT_STYLE;
+}
 
 // Simple keyword highlighter — wraps XML tags, markdown headers, and keywords in colored spans
 function HighlightedPrompt({ text }: { text: string }) {
@@ -67,40 +101,64 @@ function HighlightedPrompt({ text }: { text: string }) {
   );
 }
 
-export default function SessionCard({ session, index, isCompleted, isNew = false, onToggleComplete }: SessionCardProps) {
-  const style = MODEL_STYLES[session.recommended_agent] ?? DEFAULT_STYLE;
+function buildPrompt(session: ProjectSession, index: number): string {
+  const lines: string[] = [
+    `# Session ${session.id || index + 1}: ${session.title}`,
+    "",
+  ];
+  if (session.description) lines.push(session.description, "");
+  if (session.tech_stack_rules)
+    lines.push(`**Stack rules:** ${session.tech_stack_rules}`, "");
+  if (session.win_condition)
+    lines.push(`**Win condition:** ${session.win_condition}`, "");
+  if (session.deliverables?.length) {
+    lines.push("**Deliverables:**");
+    session.deliverables.forEach((d: string) => lines.push(`- ${d}`));
+    lines.push("");
+  }
+  if (session.dependencies?.length) {
+    lines.push(`**Depends on:** ${session.dependencies.join(", ")}`);
+    lines.push("");
+  }
+  if ((session as any).optimized_agent_prompt) {
+    lines.push("**Optimized Agent Prompt:**", "```prompt", (session as any).optimized_agent_prompt, "```");
+  }
+  return lines.join("\n").trim();
+}
+}
+
+export default function SessionCard({
+  session,
+  index,
+  isCompleted,
+  isNew = false,
+  onToggleComplete,
+}: SessionCardProps) {
+  const style = getModelStyle(session.recommended_agent);
   const [copied, setCopied] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [stackExpanded, setStackExpanded] = useState(false);
+  const stackRulesLong = session.tech_stack_rules.length > 42;
 
-  const hasPrompt = !!session.optimized_agent_prompt;
+  const hasPrompt = !!(session as any).optimized_agent_prompt;
 
   const handleCopyPromptInline = () => {
-    if (!session.optimized_agent_prompt) return;
-    navigator.clipboard.writeText(session.optimized_agent_prompt);
+    if (!(session as any).optimized_agent_prompt) return;
+    navigator.clipboard.writeText((session as any).optimized_agent_prompt);
     setPromptCopied(true);
     setTimeout(() => setPromptCopied(false), 2000);
   };
 
-  const handleCopyCard = (e: React.MouseEvent) => {
+  const handleCopyCard = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const lines = [
-      `# Session ${session.id || index + 1}: ${session.title}`,
-      "",
-      session.description,
-      "",
-      `**Stack rules:** ${session.tech_stack_rules}`,
-      `**Win condition:** ${session.win_condition}`,
-      "",
-      "**Deliverables:**",
-      ...(session.deliverables ?? []).map((d: string) => `- ${d}`),
-    ];
-    if (session.optimized_agent_prompt) {
-      lines.push("", "**Optimized Agent Prompt:**", "```prompt", session.optimized_agent_prompt, "```");
+    try {
+      await navigator.clipboard.writeText(buildPrompt(session, index));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
     }
-    navigator.clipboard.writeText(lines.join("\n").trim());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -111,7 +169,9 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
       data-testid={`card-session-${session.id}`}
     >
       {/* Model-color left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${style.bar} opacity-60 shrink-0`} />
+      <div
+        className={`absolute left-0 top-0 bottom-0 w-0.5 ${style.bar} opacity-60 shrink-0`}
+      />
 
       <CardHeader className="pb-2.5 border-b border-border/40 pl-5">
         <div className="flex items-start justify-between gap-2">
@@ -157,10 +217,11 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
               onClick={handleCopyCard}
               title="Copy session as markdown"
             >
-              {copied
-                ? <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                : <ClipboardCopy className="w-3.5 h-3.5 shrink-0" />
-              }
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+              ) : (
+                <ClipboardCopy className="w-3.5 h-3.5 shrink-0" />
+              )}
             </Button>
 
             {/* Complete toggle */}
@@ -168,13 +229,17 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
               variant="ghost"
               size="icon"
               className="rounded-full h-8 w-8 hover:bg-primary/10"
-              onClick={e => { e.stopPropagation(); onToggleComplete(session.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleComplete(session.id);
+              }}
               data-testid={`button-toggle-session-${session.id}`}
             >
-              {isCompleted
-                ? <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
-                : <Circle className="w-5 h-5 text-muted-foreground shrink-0" />
-              }
+              {isCompleted ? (
+                <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+              ) : (
+                <Circle className="w-5 h-5 text-muted-foreground shrink-0" />
+              )}
             </Button>
           </div>
         </div>
@@ -206,9 +271,30 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <Layers className="w-3 h-3 shrink-0" /> Stack Rules
               </div>
-              <div className="text-xs font-mono text-foreground/80 bg-muted px-2 py-0.5 rounded truncate max-w-[200px]">
-                {session.tech_stack_rules}
-              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStackExpanded((expanded) => !expanded);
+                }}
+                className={`group/stack text-left text-xs font-mono text-foreground/80 bg-muted px-2 py-1 rounded border border-border/40 hover:border-primary/30 hover:text-foreground transition-colors ${
+                  stackExpanded
+                    ? "max-w-full whitespace-normal leading-relaxed"
+                    : "max-w-[240px] truncate"
+                }`}
+                title={
+                  stackRulesLong ? "Click to expand stack rules" : undefined
+                }
+              >
+                <span>{session.tech_stack_rules}</span>
+                {stackRulesLong && (
+                  <ChevronDown
+                    className={`inline-block ml-1 h-3 w-3 text-muted-foreground transition-transform ${
+                      stackExpanded ? "rotate-180" : ""
+                    }`}
+                  />
+                )}
+              </button>
             </div>
           )}
         </div>
@@ -216,7 +302,9 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
         {/* Win condition */}
         {session.win_condition && (
           <div className="bg-muted/40 px-3 py-2 rounded-md border border-border/60">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Win Condition</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+              Win Condition
+            </div>
             <div
               className={`text-sm font-medium leading-snug ${isNew ? "text-reveal" : ""}`}
               style={isNew ? { animationDelay: "0.18s" } : undefined}
@@ -229,10 +317,16 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
         {/* Dependencies */}
         {session.dependencies && session.dependencies.length > 0 && (
           <div className="flex flex-col gap-1">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Dependencies</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Dependencies
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {session.dependencies.map((dep: string) => (
-                <Badge key={dep} variant="outline" className="text-yellow-400 border-yellow-400/35 bg-yellow-400/8 text-[10px]">
+                <Badge
+                  key={dep}
+                  variant="outline"
+                  className="text-yellow-400 border-yellow-400/35 bg-yellow-400/8 text-[10px]"
+                >
                   {dep}
                 </Badge>
               ))}
@@ -243,13 +337,19 @@ export default function SessionCard({ session, index, isCompleted, isNew = false
         {/* Deliverables */}
         {session.deliverables && session.deliverables.length > 0 && (
           <div className="flex flex-col gap-1">
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Deliverables</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Deliverables
+            </div>
             <ul className="space-y-0.5">
               {session.deliverables.map((del: string, i: number) => (
                 <li
                   key={i}
                   className={`text-xs text-foreground/80 flex items-start gap-1.5 ${isNew ? "text-reveal" : ""}`}
-                  style={isNew ? { animationDelay: `${0.22 + i * 0.05}s` } : undefined}
+                  style={
+                    isNew
+                      ? { animationDelay: `${0.22 + i * 0.05}s` }
+                      : undefined
+                  }
                 >
                   <span className="text-primary mt-0.5 shrink-0">›</span>
                   {del}

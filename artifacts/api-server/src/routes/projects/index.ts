@@ -15,6 +15,55 @@ import { projectStateSchema } from "@workspace/db";
 
 const router: IRouter = Router();
 
+function writeSse(
+  res: { write: (chunk: string) => unknown },
+  payload: Record<string, unknown>,
+): void {
+  res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function stripJsonFence(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
+function parseStructuredResponse(text: string): unknown | null {
+  const unfenced = stripJsonFence(text);
+
+  try {
+    return JSON.parse(unfenced);
+  } catch {
+    const firstBrace = unfenced.indexOf("{");
+    const lastBrace = unfenced.lastIndexOf("}");
+    if (firstBrace === -1 || lastBrace <= firstBrace) return null;
+
+    try {
+      return JSON.parse(unfenced.slice(firstBrace, lastBrace + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+
+function asStringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return value.filter(
+    (item): item is string =>
+      typeof item === "string" && item.trim().length > 0,
+  );
+}
+
+function getString(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function getObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 const SYSTEM_INSTRUCTION = `You are an expert Socratic project manager, ADHD executive function coach, and Tri-Model AI Orchestrator.
 Your goal is to help the user break a raw idea into 45-90 min 'sessions' and route each to the optimal AI model.
 
@@ -74,7 +123,12 @@ router.post("/projects", async (req, res): Promise<void> => {
     .insert(projectsTable)
     .values({
       title: parsed.data.title,
-      projectState: { goal: "", outline: [], sessions: [], obsidian_markdown: "" },
+      projectState: {
+        goal: "",
+        outline: [],
+        sessions: [],
+        obsidian_markdown: "",
+      },
       completedSessions: [],
     })
     .returning();
@@ -128,8 +182,10 @@ router.patch("/projects/:id", async (req, res): Promise<void> => {
   };
 
   if (parsed.data.title !== undefined) updateData.title = parsed.data.title;
-  if (parsed.data.projectState !== undefined) updateData.projectState = parsed.data.projectState;
-  if (parsed.data.completedSessions !== undefined) updateData.completedSessions = parsed.data.completedSessions;
+  if (parsed.data.projectState !== undefined)
+    updateData.projectState = parsed.data.projectState;
+  if (parsed.data.completedSessions !== undefined)
+    updateData.completedSessions = parsed.data.completedSessions;
 
   const [project] = await db
     .update(projectsTable)
@@ -218,6 +274,8 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
   let fullResponse = "";
 
   try {
+    writeSse(res, { status: "Reading project context…" });
+
     const stream = await ai.models.generateContentStream({
       model: "gemini-2.5-flash",
       contents: conversationHistory,
@@ -232,7 +290,10 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
               type: "OBJECT" as const,
               properties: {
                 goal: { type: "STRING" as const },
-                outline: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+                outline: {
+                  type: "ARRAY" as const,
+                  items: { type: "STRING" as const },
+                },
                 obsidian_markdown: { type: "STRING" as const },
                 sessions: {
                   type: "ARRAY" as const,
@@ -245,8 +306,14 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
                       recommended_agent: { type: "STRING" as const },
                       tech_stack_rules: { type: "STRING" as const },
                       win_condition: { type: "STRING" as const },
-                      deliverables: { type: "ARRAY" as const, items: { type: "STRING" as const } },
-                      dependencies: { type: "ARRAY" as const, items: { type: "STRING" as const } },
+                      deliverables: {
+                        type: "ARRAY" as const,
+                        items: { type: "STRING" as const },
+                      },
+                      dependencies: {
+                        type: "ARRAY" as const,
+                        items: { type: "STRING" as const },
+                      },
                       optimized_agent_prompt: { type: "STRING" as const },
                     },
                   },
@@ -260,47 +327,104 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
       },
     });
 
+    writeSse(res, { status: "Designing the blueprint…" });
+
     for await (const chunk of stream) {
       const text = chunk.text;
       if (text) {
         fullResponse += text;
-        res.write(`data: ${JSON.stringify({ content: text })}\n\n`);
       }
     }
 
+    writeSse(res, { status: "Polishing sessions…" });
+
     let assistantContent = fullResponse;
     let newProjectState = project.projectState;
+    const parsedResponse = getObject(parseStructuredResponse(fullResponse));
 
-    try {
-      const parsed = JSON.parse(fullResponse);
-      if (parsed.chat_response) {
-        assistantContent = parsed.chat_response;
-      }
-      if (parsed.project_state) {
-        const stateResult = projectStateSchema.safeParse({
-          goal: parsed.project_state.goal ?? newProjectState.goal,
-          outline: parsed.project_state.outline ?? newProjectState.outline,
-          sessions: (parsed.project_state.sessions ?? newProjectState.sessions).map(
-            (s: Record<string, unknown>) => ({
-              id: s.id ?? "",
-              title: s.title ?? "",
-              description: s.description ?? "",
-              recommended_agent: s.recommended_agent ?? "",
-              tech_stack_rules: s.tech_stack_rules ?? "",
-              win_condition: s.win_condition ?? "",
-              deliverables: Array.isArray(s.deliverables) ? s.deliverables : [],
-              dependencies: Array.isArray(s.dependencies) ? s.dependencies : [],
-              optimized_agent_prompt: typeof s.optimized_agent_prompt === "string" ? s.optimized_agent_prompt : undefined,
-            })
-          ),
-          obsidian_markdown: parsed.project_state.obsidian_markdown ?? newProjectState.obsidian_markdown,
+    if (parsedResponse) {
+      assistantContent = getString(
+        parsedResponse.chat_response,
+        assistantContent,
+      );
+      const parsedProjectState = getObject(parsedResponse.project_state);
+
+      if (parsedProjectState) {
+        const fallbackSessions = newProjectState.sessions;
+        const candidateSessions = Array.isArray(parsedProjectState.sessions)
+          ? parsedProjectState.sessions
+          : fallbackSessions;
+        const normalizedSessions = candidateSessions.map((session, index) => {
+          const sessionObject = getObject(session) ?? {};
+          const fallback = fallbackSessions[index];
+
+          return {
+            id: getString(
+              sessionObject.id,
+              fallback?.id ?? String(index + 1).padStart(2, "0"),
+            ),
+            title: getString(
+              sessionObject.title,
+              fallback?.title ?? `Session ${index + 1}`,
+            ),
+            description: getString(
+              sessionObject.description,
+              fallback?.description ?? "",
+            ),
+            recommended_agent: getString(
+              sessionObject.recommended_agent,
+              fallback?.recommended_agent ?? "OpenAI",
+            ),
+            tech_stack_rules: getString(
+              sessionObject.tech_stack_rules,
+              fallback?.tech_stack_rules ??
+                "Audit and adapt to the existing stack.",
+            ),
+            win_condition: getString(
+              sessionObject.win_condition,
+              fallback?.win_condition ??
+                "A clear, reviewable deliverable is complete.",
+            ),
+            deliverables: asStringArray(
+              sessionObject.deliverables,
+              fallback?.deliverables ?? [],
+            ),
+            dependencies: asStringArray(
+              sessionObject.dependencies,
+              fallback?.dependencies ?? [],
+            ),
+            optimized_agent_prompt: sessionObject.optimized_agent_prompt && typeof sessionObject.optimized_agent_prompt === "string"
+              ? sessionObject.optimized_agent_prompt
+              : (fallback as any)?.optimized_agent_prompt,
+          };
         });
+
+        const stateResult = projectStateSchema.safeParse({
+          goal: getString(parsedProjectState.goal, newProjectState.goal),
+          outline: asStringArray(
+            parsedProjectState.outline,
+            newProjectState.outline,
+          ),
+          sessions: normalizedSessions,
+          obsidian_markdown: getString(
+            parsedProjectState.obsidian_markdown,
+            newProjectState.obsidian_markdown,
+          ),
+        });
+
         if (stateResult.success) {
           newProjectState = stateResult.data;
+        } else {
+          req.log.warn(
+            { issues: stateResult.error.issues },
+            "AI project state did not match schema",
+          );
         }
       }
-    } catch {
-      // If JSON parse fails, use the raw text as the assistant response
+    } else {
+      req.log.warn(
+        "AI response was not structured JSON; using raw text as assistant content",
+      );
     }
 
     await db.insert(projectMessagesTable).values({
@@ -310,7 +434,8 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
     });
 
     const title = newProjectState.goal
-      ? newProjectState.goal.substring(0, 45) + (newProjectState.goal.length > 45 ? "..." : "")
+      ? newProjectState.goal.substring(0, 45) +
+        (newProjectState.goal.length > 45 ? "..." : "")
       : project.title;
 
     await db
@@ -318,19 +443,15 @@ router.post("/projects/:id/messages", async (req, res): Promise<void> => {
       .set({ projectState: newProjectState, title, updatedAt: new Date() })
       .where(eq(projectsTable.id, params.data.id));
 
-    res.write(
-      `data: ${JSON.stringify({
-        done: true,
-        assistant_content: assistantContent,
-        project_state: newProjectState,
-      })}\n\n`
-    );
+    writeSse(res, {
+      done: true,
+      assistant_content: assistantContent,
+      project_state: newProjectState,
+    });
     res.end();
   } catch (err) {
     req.log.error({ err }, "Error generating AI response");
-    res.write(
-      `data: ${JSON.stringify({ error: "Failed to generate response" })}\n\n`
-    );
+    writeSse(res, { error: "Failed to generate response" });
     res.end();
   }
 });

@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { ProjectState, ProjectSession } from "@workspace/api-client-react";
-import { Copy, Download, Zap, MessageSquarePlus, X, Send, ChevronRight, CheckCircle2 } from "lucide-react";
+import {
+  Copy,
+  Download,
+  Zap,
+  MessageSquarePlus,
+  X,
+  Send,
+  ChevronRight,
+  CheckCircle2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -15,6 +24,7 @@ interface BlueprintBoardProps {
   completedSessions: string[];
   onToggleComplete: (id: string) => void;
   isStreaming: boolean;
+  streamStatus: string;
   blueprintVersion: number;
   isBlueprintNew: boolean;
   onSendAnnotation: (elementLabel: string, comment: string) => void;
@@ -48,7 +58,10 @@ function AnnotationPortal({
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const t = e.target as Element;
-      if (!t.closest("[data-annotation-portal]") && !t.closest("[data-annotatable]")) {
+      if (
+        !t.closest("[data-annotation-portal]") &&
+        !t.closest("[data-annotatable]")
+      ) {
         onClose();
       }
     };
@@ -58,7 +71,9 @@ function AnnotationPortal({
 
   // Escape to close
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -74,10 +89,13 @@ function AnnotationPortal({
   const rawLeft = active.rect.left + active.rect.width / 2 - PORTAL_W / 2;
   const left = Math.max(8, Math.min(rawLeft, vw - PORTAL_W - 8));
   const top = active.rect.bottom + 10;
-  const arrowLeft = Math.max(12, Math.min(
-    active.rect.left + active.rect.width / 2 - left - 7,
-    PORTAL_W - 24,
-  ));
+  const arrowLeft = Math.max(
+    12,
+    Math.min(
+      active.rect.left + active.rect.width / 2 - left - 7,
+      PORTAL_W - 24,
+    ),
+  );
 
   return createPortal(
     <AnimatePresence>
@@ -92,11 +110,19 @@ function AnnotationPortal({
       >
         {/* Arrow pointer */}
         <div
-          style={{ position: "absolute", top: -8, left: arrowLeft, width: 16, height: 9, overflow: "hidden" }}
+          style={{
+            position: "absolute",
+            top: -8,
+            left: arrowLeft,
+            width: 16,
+            height: 9,
+            overflow: "hidden",
+          }}
         >
           <div
             style={{
-              width: 11, height: 11,
+              width: 11,
+              height: 11,
               background: "hsl(222,47%,12%)",
               border: "1px solid hsl(151,100%,46%,0.35)",
               transform: "rotate(45deg)",
@@ -112,7 +138,10 @@ function AnnotationPortal({
           <span className="text-[11px] font-mono text-muted-foreground flex-1 truncate">
             Re: <span className="text-primary font-medium">{active.label}</span>
           </span>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors shrink-0">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -122,9 +151,12 @@ function AnnotationPortal({
           <Textarea
             ref={inputRef}
             value={text}
-            onChange={e => setText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
             }}
             placeholder="Your feedback or question…"
             className="flex-1 min-h-[56px] max-h-[120px] resize-none text-sm border-border bg-background/60 focus-visible:ring-primary/30"
@@ -160,7 +192,9 @@ function Annotatable({
   id: string;
   label: string;
   isActive: boolean;
-  onActivate: (data: { id: string; label: string; rect: DOMRect } | null) => void;
+  onActivate: (
+    data: { id: string; label: string; rect: DOMRect } | null,
+  ) => void;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -184,10 +218,10 @@ function Annotatable({
       {children}
 
       {/* Hover badge */}
-      <div className="absolute top-2 right-2 opacity-0 group-hover/ann:opacity-100 transition-opacity pointer-events-none z-10">
+      <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover/ann:opacity-100 transition-opacity pointer-events-none z-10">
         <div className="flex items-center gap-1 text-[10px] font-mono text-primary/80 bg-background/90 backdrop-blur-sm border border-primary/20 rounded-md px-1.5 py-0.5 shadow-sm">
           <MessageSquarePlus className="w-2.5 h-2.5 shrink-0" />
-          <span>comment</span>
+          <span className="hidden sm:inline">comment</span>
         </div>
       </div>
 
@@ -200,7 +234,7 @@ function Annotatable({
 }
 
 // ── Glowing scanner skeleton for the "thinking" state ──
-function BuildingSkeleton() {
+function BuildingSkeleton({ status }: { status?: string }) {
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20 px-4 md:px-6 pt-6">
       {/* Status badge */}
@@ -210,10 +244,10 @@ function BuildingSkeleton() {
           <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
         </span>
         <span className="text-[11px] font-mono uppercase tracking-widest text-primary">
-          Constructing blueprint
+          {status || "Constructing blueprint"}
         </span>
         <span className="flex gap-0.5 items-end ml-1">
-          {[0, 1, 2].map(i => (
+          {[0, 1, 2].map((i) => (
             <motion.span
               key={i}
               className="inline-block w-1 h-1 rounded-full bg-primary"
@@ -226,7 +260,7 @@ function BuildingSkeleton() {
 
       {/* Goal + Structure skeletons */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[0, 1].map(i => (
+        {[0, 1].map((i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 12 }}
@@ -241,7 +275,11 @@ function BuildingSkeleton() {
             <div className="h-2.5 w-20 rounded-full bg-muted animate-pulse mb-4" />
             <div className="space-y-2">
               {[80, 95, 65].map((w, j) => (
-                <div key={j} className="h-2 rounded-full bg-muted/70 animate-pulse" style={{ width: `${w}%`, animationDelay: `${j * 120}ms` }} />
+                <div
+                  key={j}
+                  className="h-2 rounded-full bg-muted/70 animate-pulse"
+                  style={{ width: `${w}%`, animationDelay: `${j * 120}ms` }}
+                />
               ))}
             </div>
           </motion.div>
@@ -251,7 +289,7 @@ function BuildingSkeleton() {
       {/* Session skeletons */}
       <div className="space-y-3 pt-2">
         <div className="h-2.5 w-32 rounded-full bg-muted/60 animate-pulse" />
-        {[0, 1, 2].map(i => (
+        {[0, 1, 2].map((i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, x: 20 }}
@@ -260,8 +298,10 @@ function BuildingSkeleton() {
             className="relative rounded-xl border border-border bg-card/50 p-4 overflow-hidden"
           >
             <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
-              <div className="scanner-sweep absolute inset-y-0 w-1/4 bg-gradient-to-r from-transparent via-primary/15 to-transparent"
-                style={{ animationDelay: `${i * 0.25}s` }} />
+              <div
+                className="scanner-sweep absolute inset-y-0 w-1/4 bg-gradient-to-r from-transparent via-primary/15 to-transparent"
+                style={{ animationDelay: `${i * 0.25}s` }}
+              />
             </div>
             <div className="flex items-start justify-between mb-3">
               <div className="space-y-2 flex-1">
@@ -286,18 +326,22 @@ export default function BlueprintBoard({
   completedSessions,
   onToggleComplete,
   isStreaming,
+  streamStatus,
   blueprintVersion,
   isBlueprintNew,
   onSendAnnotation,
 }: BlueprintBoardProps) {
   const { toast } = useToast();
-  const [activeAnnotation, setActiveAnnotation] = useState<ActiveAnnotation | null>(null);
+  const [activeAnnotation, setActiveAnnotation] =
+    useState<ActiveAnnotation | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
 
   // Scroll to top of board when a new blueprint arrives
   useEffect(() => {
     if (!isBlueprintNew) return;
-    const viewport = boardRef.current?.querySelector("[data-radix-scroll-area-viewport]");
+    const viewport = boardRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    );
     if (viewport) viewport.scrollTop = 0;
   }, [blueprintVersion, isBlueprintNew]);
 
@@ -307,29 +351,39 @@ export default function BlueprintBoard({
 
   useEffect(() => {
     if (!projectState?.sessions) return;
-    const current = new Set(projectState.sessions.map((s: ProjectSession) => s.id));
+    const current = new Set(
+      projectState.sessions.map((s: ProjectSession) => s.id),
+    );
     if (isBlueprintNew) {
       // Full new board — every session animates, then remember them all
       setNewSessionIds(current);
     } else {
       // Annotation response — only animate sessions that didn't exist before
-      const added = new Set([...current].filter(id => !prevSessionIdsRef.current.has(id)));
+      const added = new Set(
+        [...current].filter((id) => !prevSessionIdsRef.current.has(id)),
+      );
       setNewSessionIds(added);
     }
     prevSessionIdsRef.current = current;
   }, [blueprintVersion]);
 
   // Close portal when blueprint is replaced
-  useEffect(() => { setActiveAnnotation(null); }, [blueprintVersion]);
+  useEffect(() => {
+    setActiveAnnotation(null);
+  }, [blueprintVersion]);
 
   const handleActivate = useCallback(
-    (data: { id: string; label: string; rect: DOMRect } | null) => setActiveAnnotation(data),
+    (data: { id: string; label: string; rect: DOMRect } | null) =>
+      setActiveAnnotation(data),
     [],
   );
 
   const handleCopyJson = () => {
     navigator.clipboard.writeText(JSON.stringify(projectState, null, 2));
-    toast({ title: "Copied JSON", description: "Project state copied to clipboard." });
+    toast({
+      title: "Copied JSON",
+      description: "Project state copied to clipboard.",
+    });
   };
 
   const handleOpenObsidian = () => {
@@ -342,10 +396,13 @@ export default function BlueprintBoard({
     toast({ title: "Copied & Opened" });
   };
 
-  const hasState = projectState && (projectState.goal || (projectState.sessions?.length ?? 0) > 0);
+  const hasState =
+    projectState &&
+    (projectState.goal || (projectState.sessions?.length ?? 0) > 0);
   const totalSessions = projectState?.sessions?.length ?? 0;
   const completedCount = completedSessions.length;
-  const progressPct = totalSessions > 0 ? (completedCount / totalSessions) * 100 : 0;
+  const progressPct =
+    totalSessions > 0 ? (completedCount / totalSessions) * 100 : 0;
 
   // Reveal animation key: changes per blueprintVersion so text re-animates on new boards only
   const revealKey = isBlueprintNew ? blueprintVersion : "static";
@@ -372,7 +429,12 @@ export default function BlueprintBoard({
           <div className="flex items-center gap-2">
             {hasState && !isStreaming && (
               <>
-                <Button variant="outline" size="sm" onClick={handleCopyJson} className="border-border h-7 text-xs shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyJson}
+                  className="border-border h-7 text-xs shrink-0"
+                >
                   <Copy className="w-3 h-3 mr-1.5 shrink-0" /> JSON
                 </Button>
                 <Button
@@ -387,7 +449,9 @@ export default function BlueprintBoard({
               </>
             )}
             {!hasState && !isStreaming && (
-              <span className="text-[10px] font-mono text-muted-foreground/60">Hover any card to annotate</span>
+              <span className="text-[10px] font-mono text-muted-foreground/60">
+                Hover any card to annotate
+              </span>
             )}
           </div>
         </div>
@@ -429,8 +493,13 @@ export default function BlueprintBoard({
         <AnimatePresence mode="wait">
           {/* Building skeleton */}
           {isStreaming && !hasState && (
-            <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.2 } }}>
-              <BuildingSkeleton />
+            <motion.div
+              key="skeleton"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            >
+              <BuildingSkeleton status={streamStatus} />
             </motion.div>
           )}
 
@@ -446,9 +515,12 @@ export default function BlueprintBoard({
             >
               <div className="max-w-xs space-y-4 opacity-35">
                 <Zap className="w-14 h-14 text-primary mx-auto" />
-                <h2 className="text-lg font-mono uppercase tracking-wider">Awaiting Input</h2>
+                <h2 className="text-lg font-mono uppercase tracking-wider">
+                  Awaiting Input
+                </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  The Blueprint Board will populate as the Tri-Model Orchestrator structures your project.
+                  The Blueprint Board will populate as the Tri-Model
+                  Orchestrator structures your project.
                 </p>
               </div>
             </motion.div>
@@ -470,7 +542,8 @@ export default function BlueprintBoard({
                   className="flex items-center gap-2 text-[11px] text-primary/70 font-mono border border-primary/15 bg-primary/5 rounded-lg px-3 py-2"
                 >
                   <MessageSquarePlus className="w-3.5 h-3.5 shrink-0" />
-                  Click any card to leave feedback — it goes straight to the Orchestrator
+                  Click or tap any card to leave feedback — it goes straight to
+                  the Orchestrator
                 </motion.div>
               )}
 
@@ -480,12 +553,24 @@ export default function BlueprintBoard({
                   <motion.div
                     initial={isBlueprintNew ? { opacity: 0, y: 18 } : false}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.05, type: "spring", stiffness: 280, damping: 26 }}
+                    transition={{
+                      delay: 0.05,
+                      type: "spring",
+                      stiffness: 280,
+                      damping: 26,
+                    }}
                   >
-                    <Annotatable id="goal" label="Core Goal" isActive={activeAnnotation?.id === "goal"} onActivate={handleActivate}>
+                    <Annotatable
+                      id="goal"
+                      label="Core Goal"
+                      isActive={activeAnnotation?.id === "goal"}
+                      onActivate={handleActivate}
+                    >
                       <Card className="bg-card/60 border-border">
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-xs uppercase tracking-widest text-primary">Core Goal</CardTitle>
+                          <CardTitle className="text-xs uppercase tracking-widest text-primary">
+                            Core Goal
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <p
@@ -504,25 +589,45 @@ export default function BlueprintBoard({
                   <motion.div
                     initial={isBlueprintNew ? { opacity: 0, y: 18 } : false}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.16, type: "spring", stiffness: 280, damping: 26 }}
+                    transition={{
+                      delay: 0.16,
+                      type: "spring",
+                      stiffness: 280,
+                      damping: 26,
+                    }}
                   >
-                    <Annotatable id="structure" label="Structure" isActive={activeAnnotation?.id === "structure"} onActivate={handleActivate}>
+                    <Annotatable
+                      id="structure"
+                      label="Structure"
+                      isActive={activeAnnotation?.id === "structure"}
+                      onActivate={handleActivate}
+                    >
                       <Card className="bg-card/60 border-border">
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-xs uppercase tracking-widest text-secondary">Structure</CardTitle>
+                          <CardTitle className="text-xs uppercase tracking-widest text-secondary">
+                            Structure
+                          </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <ol className="space-y-1.5">
-                            {projectState!.outline!.map((item: string, i: number) => (
-                              <li
-                                key={i}
-                                className={`flex items-start gap-2 text-sm text-foreground leading-relaxed ${isBlueprintNew ? "text-reveal" : ""}`}
-                                style={isBlueprintNew ? { animationDelay: `${0.16 + i * 0.06}s` } : undefined}
-                              >
-                                <ChevronRight className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
-                                {item}
-                              </li>
-                            ))}
+                            {projectState!.outline!.map(
+                              (item: string, i: number) => (
+                                <li
+                                  key={i}
+                                  className={`flex items-start gap-2 text-sm text-foreground leading-relaxed ${isBlueprintNew ? "text-reveal" : ""}`}
+                                  style={
+                                    isBlueprintNew
+                                      ? {
+                                          animationDelay: `${0.16 + i * 0.06}s`,
+                                        }
+                                      : undefined
+                                  }
+                                >
+                                  <ChevronRight className="w-3.5 h-3.5 text-secondary shrink-0 mt-0.5" />
+                                  {item}
+                                </li>
+                              ),
+                            )}
                           </ol>
                         </CardContent>
                       </Card>
@@ -541,38 +646,48 @@ export default function BlueprintBoard({
                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
-                    {projectState!.sessions!.map((session: ProjectSession, i: number) => {
-                      const isNew = newSessionIds.has(session.id);
-                      const sessionAnnotationId = `session-${session.id}`;
-                      return (
-                        <motion.div
-                          key={session.id || i}
-                          initial={isNew ? { opacity: 0, x: 24 } : false}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{
-                            delay: isNew ? (isBlueprintNew ? 0.28 + i * 0.11 : 0.05) : 0,
-                            type: "spring",
-                            stiffness: 260,
-                            damping: 26,
-                          }}
-                        >
-                          <Annotatable
-                            id={sessionAnnotationId}
-                            label={session.title || `Session ${i + 1}`}
-                            isActive={activeAnnotation?.id === sessionAnnotationId}
-                            onActivate={handleActivate}
+                    {projectState!.sessions!.map(
+                      (session: ProjectSession, i: number) => {
+                        const isNew = newSessionIds.has(session.id);
+                        const sessionAnnotationId = `session-${session.id}`;
+                        return (
+                          <motion.div
+                            key={session.id || i}
+                            initial={isNew ? { opacity: 0, x: 24 } : false}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{
+                              delay: isNew
+                                ? isBlueprintNew
+                                  ? 0.28 + i * 0.11
+                                  : 0.05
+                                : 0,
+                              type: "spring",
+                              stiffness: 260,
+                              damping: 26,
+                            }}
                           >
-                            <SessionCard
-                              session={session}
-                              index={i}
-                              isCompleted={completedSessions.includes(session.id)}
-                              onToggleComplete={onToggleComplete}
-                              isNew={isNew && isBlueprintNew}
-                            />
-                          </Annotatable>
-                        </motion.div>
-                      );
-                    })}
+                            <Annotatable
+                              id={sessionAnnotationId}
+                              label={session.title || `Session ${i + 1}`}
+                              isActive={
+                                activeAnnotation?.id === sessionAnnotationId
+                              }
+                              onActivate={handleActivate}
+                            >
+                              <SessionCard
+                                session={session}
+                                index={i}
+                                isCompleted={completedSessions.includes(
+                                  session.id,
+                                )}
+                                onToggleComplete={onToggleComplete}
+                                isNew={isNew && isBlueprintNew}
+                              />
+                            </Annotatable>
+                          </motion.div>
+                        );
+                      },
+                    )}
                   </div>
                 </div>
               )}
