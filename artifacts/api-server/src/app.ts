@@ -31,4 +31,20 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+if (process.env.NODE_ENV === "production") {
+  const path = await import("path");
+  const { fileURLToPath } = await import("url");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const staticPath = path.resolve(__dirname, "../../focusflow/dist/public");
+  
+  app.use(express.static(staticPath));
+  
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) {
+      return next();
+    }
+    res.sendFile(path.join(staticPath, "index.html"));
+  });
+}
+
 export default app;
