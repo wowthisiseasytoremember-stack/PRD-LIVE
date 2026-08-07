@@ -1,6 +1,43 @@
+---
+schema: agents-md/v1
+project: PRD-LIVE
+what: >-
+  FocusFlow — a Socratic AI project manager that turns a fuzzy project idea
+  into a structured blueprint: 45-90 minute execution sessions, each routed to
+  a best-fit AI model and shipped with win conditions, deliverables and a
+  standalone agent prompt. Delivered as a pnpm monorepo with a React SPA, an
+  Express API and a Postgres/Drizzle data layer.
+status: active
+stack: [typescript, react, vite, tailwind, express, postgresql, drizzle, gemini, docker]
+modules:
+  - name: FocusFlow web app
+    path: artifacts/focusflow
+    does: React SPA — chat panel, blueprint board, annotations, Obsidian export.
+  - name: API server
+    path: artifacts/api-server
+    does: Express 5 API with SSE streaming for AI responses and prompt rewriting.
+  - name: Database layer
+    path: lib/db
+    does: Drizzle ORM schema and migrations for projects and blueprints.
+  - name: Gemini integration
+    path: lib/integrations-gemini-ai
+    does: Wrapper around the Google Gemini client.
+  - name: API contract
+    path: lib/api-spec
+    does: OpenAPI 3.x spec that drives React Query and Zod codegen.
+updated: 2026-08-07 05:45 UTC
+---
+
 # FocusFlow — Agent Context
 
 **Last updated:** 2026-05-19
+**Initiative:** agent-infra (possibly earlier iteration of a current initiative — verify)
+**Status:** Active prototype — may be superseded. Cross-check with current agent-infra work before extending.
+
+## ⚠️ Continuity Note
+Justin believes FocusFlow may be an earlier version of something currently being built.
+Before doing significant work here, check ~/plans/initiatives.yml and recent session close-logs
+for a "project orchestrator" or "Socratic PM" initiative that may have superseded this.
 
 ## Project Description
 
@@ -26,49 +63,24 @@ FocusFlow is a Tri-Model AI Project Orchestrator — a Socratic AI project manag
 - `artifacts/focusflow/src/pages/home.tsx` — SPA state orchestration
 - `artifacts/focusflow/src/components/ChatPanel.tsx` — Chat UI with SSE streaming
 - `artifacts/focusflow/src/components/BlueprintBoard.tsx` — Blueprint + annotation UI
-- `artifacts/api-server/src/routes/projects/index.ts` — API routes (CRUD + AI messages)
+- `artifacts/api-server/src/routes/projects/index.ts` — API routes
 - `artifacts/api-server/src/routes/prompt-forge/index.ts` — Prompt rewriting API
 - `lib/db/src/schema/projects.ts` — Drizzle ORM schema
 - `lib/integrations-gemini-ai/` — Gemini API client wrapper
 - `lib/api-spec/` — OpenAPI 3.x contract
 - `docs/LLM_CONTEXT.md` — LLM-optimized architecture notes
-- `pnpm-workspace.yaml` — Workspace configuration
-- `.env.example` — Environment variable template
 
 ## Run Commands
 
 ```bash
-pnpm install                          # Install dependencies (pnpm required, npm/yarn rejected)
-pnpm --filter @workspace/db run push  # Push DB schema to PostgreSQL
-pnpm --filter @workspace/api-server run dev  # Start Express 5 API server
-pnpm --filter @workspace/focusflow run dev   # Start Vite frontend dev server
-pnpm run typecheck                    # Full typecheck across all packages
-pnpm run build                        # Typecheck + build all packages
-docker compose up -d                  # Start PostgreSQL + app (production)
+pnpm install
+pnpm --filter @workspace/db run push
+pnpm --filter @workspace/api-server run dev
+pnpm --filter @workspace/focusflow run dev
+docker compose up -d
 ```
 
-## Environment
-
-| Variable | Purpose |
-|----------|---------|
-| `DATABASE_URL` | PostgreSQL connection string |
-| `GEMINI_API_KEY` | Google Gemini API key |
-| `PORT` | Runtime port |
-| `BASE_PATH` | FocusFlow Vite base path |
-
-## Development Workflow
-
-1. Edit OpenAPI spec first when API shapes change
-2. Run `pnpm --filter @workspace/api-spec run codegen` to regenerate hooks/validators
-3. Update DB schema and run push if persisted shapes change
-4. Update server routes and frontend consumers
-5. Run `pnpm run typecheck && pnpm run build`
-6. Keep docs in sync
-
-## Notes
-
-- AI responses use structured JSON with response schema validation
-- SSE via raw `fetch` + `ReadableStream` (generated React Query hooks not suitable for streaming)
-- No client-side routing — single-page, state managed in `home.tsx`
-- Server preserves prior project state when AI omits optional fields
-- Generated files in `lib/api-client-react/src/generated/` and `lib/api-zod/src/generated/` should not be hand-edited
+## Environment Variables
+- `DATABASE_URL` — PostgreSQL
+- `GEMINI_API_KEY` — Google Gemini
+- `PORT`, `BASE_PATH`
